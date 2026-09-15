@@ -1,0 +1,241 @@
+import os
+import json
+import time
+from datetime import datetime
+import requests
+import google.generativeai as genai
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+
+# Environment Variables
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+GOOGLE_SERVICE_ACCOUNT_JSON = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
+SPREADSHEET_ID = os.environ.get("SPREADSHEET_ID")
+LINKEDIN_ACCESS_TOKEN = os.environ.get("LINKEDIN_ACCESS_TOKEN")
+LINKEDIN_AUTHOR_URN = os.environ.get("LINKEDIN_AUTHOR_URN") # e.g., urn:li:person:123456789
+
+# Scopes for Google APIs
+SCOPES = [
+    'https://www.googleapis.com/auth/spreadsheets'
+]
+
+def get_google_services():
+    creds_dict = json.loads(GOOGLE_SERVICE_ACCOUNT_JSON)
+    creds = service_account.Credentials.from_service_account_info(creds_dict, scopes=SCOPES)
+    sheets_service = build('sheets', 'v4', credentials=creds)
+    return sheets_service
+
+def get_previous_quotes(sheets_service):
+    # Assuming quotes are in column B of 'Sheet1'
+    try:
+        result = sheets_service.spreadsheets().values().get(
+            spreadsheetId=SPREADSHEET_ID,
+            range='Sheet1!B:B'
+        ).execute()
+        values = result.get('values', [])
+        return [row[0] for row in values if row]
+    except Exception as e:
+        print(f"Error fetching quotes: {e}")
+        return []
+
+def generate_unique_quote(previous_quotes):
+    genai.configure(api_key=GEMINI_API_KEY)
+    # Using Gemini 1.5 Flash for quick text generation
+    model = genai.GenerativeModel('gemini-1.5-flash')
+    
+    prompt = "Generate a highly motivating and original professional quote suitable for a LinkedIn post. Just provide the quote text, nothing else. No quotes marks."
+    
+    for _ in range(5): # Try 5 times to get a unique quote
+        response = model.generate_content(prompt)
+        quote = response.text.strip().strip('"').strip("'")
+        
+        # Check similarity (basic exact match/substring match here, can be improved)
+        is_duplicate = False
+        for prev in previous_quotes:
+            if quote.lower() in prev.lower() or prev.lower() in quote.lower():
+                is_duplicate = True
+                break
+                
+        if not is_duplicate:
+            return quote
+            
+    raise Exception("Failed to generate a unique quote after 5 attempts.")
+
+def create_local_image(quote):
+    from PIL import Image, ImageDraw, ImageFont
+    import textwrap
+    import os
+
+    template_path = 'template.png'
+    output_path = 'quote.png'
+    
+    if not os.path.exists(template_path):
+        raise Exception(f"Template image {template_path} not found.")
+
+    img = Image.open(template_path)
+    draw = ImageDraw.Draw(img)
+    
+    font_path = 'montserrat.ttf'
+    if not os.path.exists(font_path):
+        import urllib.request
+        # Download a free font (Roboto) directly
+        font_url = "https://github.com/googlefonts/roboto/raw/main/src/hinted/Roboto-Bold.ttf"
+        try:
+            urllib.request.urlretrieve(font_url, font_path)
+        except Exception as e:
+            print(f"Failed to download font, using default: {e}")
+            
+    try:
+        font = ImageFont.truetype(font_path, 40)
+    except Exception:
+        # Fallback for local windows test
+        try:
+            font = ImageFont.truetype('C:\\Windows\\Fonts\\arialbd.ttf', 40)
+        except Exception:
+            font = ImageFont.load_default()
+        
+    width, height = img.size
+    
+    # Wrap text to fit nicely between quotes
+    # The template seems to have quotes around x=20% and x=80%
+    lines = textwrap.wrap(quote, width=35) # Adjust width based on visual testing
+    
+    # Calculate total text height
+    total_text_height = sum([draw.textbbox((0, 0), line, font=font)[3] for line in lines])
+    
+    # Start y to center vertically
+    y_text = (height - total_text_height) / 2
+    
+    for line in lines:
+        line_width = draw.textbbox((0, 0), line, font=font)[2]
+        x_text = (width - line_width) / 2
+        draw.text((x_text, y_text), line, font=font, fill=(255, 255, 255))
+        y_text += draw.textbbox((0, 0), line, font=font)[3] + 15
+        
+    img.save(output_path)
+    return output_path
+
+def upload_image_to_linkedin(image_path):
+    # 1. Register Upload
+    register_url = "https://api.linkedin.com/v2/assets?action=registerUpload"
+    headers = {
+        "Authorization": f"Bearer {LINKEDIN_ACCESS_TOKEN}",
+        "Content-Type": "application/json",
+        "X-Restli-Protocol-Version": "2.0.0"
+    }
+    
+    register_body = {
+        "registerUploadRequest": {
+            "recipes": [
+                "urn:li:digitalmediaRecipe:feedshare-image"
+            ],
+            "owner": LINKEDIN_AUTHOR_URN,
+            "serviceRelationships": [
+                {
+                    "relationshipType": "OWNER",
+                    "identifier": "urn:li:userGeneratedContent"
+                }
+            ]
+        }
+    }
+    
+    res = requests.post(register_url, headers=headers, json=register_body)
+    res_data = res.json()
+    
+    upload_url = res_data['value']['uploadMechanism']['com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest']['uploadUrl']
+    asset_urn = res_data['value']['asset']
+    
+    # 2. Upload Image
+    with open(image_path, 'rb') as f:
+        image_data = f.read()
+        
+    upload_headers = {
+        "Authorization": f"Bearer {LINKEDIN_ACCESS_TOKEN}",
+    }
+    upload_res = requests.put(upload_url, headers=upload_headers, data=image_data)
+    if upload_res.status_code != 201:
+        raise Exception("Failed to upload image to LinkedIn.")
+        
+    return asset_urn
+
+def post_to_linkedin(quote, asset_urn):
+    post_url = "https://api.linkedin.com/v2/ugcPosts"
+    headers = {
+        "Authorization": f"Bearer {LINKEDIN_ACCESS_TOKEN}",
+        "Content-Type": "application/json",
+        "X-Restli-Protocol-Version": "2.0.0"
+    }
+    
+    post_body = {
+        "author": LINKEDIN_AUTHOR_URN,
+        "lifecycleState": "PUBLISHED",
+        "specificContent": {
+            "com.linkedin.ugc.ShareContent": {
+                "shareCommentary": {
+                    "text": f"{quote}\n\n#Motivation #DailyQuote #Inspiration"
+                },
+                "shareMediaCategory": "IMAGE",
+                "media": [
+                    {
+                        "status": "READY",
+                        "description": {"text": "Daily Quote"},
+                        "media": asset_urn,
+                        "title": {"text": "Daily Quote"}
+                    }
+                ]
+            }
+        },
+        "visibility": {
+            "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC"
+        }
+    }
+    
+    res = requests.post(post_url, headers=headers, json=post_body)
+    if res.status_code != 201:
+        raise Exception(f"Failed to post to LinkedIn: {res.text}")
+        
+    # Construct URL (approximation, true URL requires additional API calls, but returning the URN is typical)
+    post_id = res.json().get('id')
+    return f"https://www.linkedin.com/feed/update/{post_id}"
+
+def append_to_sheet(sheets_service, quote, post_url):
+    date_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    values = [[date_str, quote, post_url]]
+    body = {'values': values}
+    
+    sheets_service.spreadsheets().values().append(
+        spreadsheetId=SPREADSHEET_ID,
+        range='Sheet1!A:C',
+        valueInputOption='USER_ENTERED',
+        body=body
+    ).execute()
+
+def main():
+    print("Starting Daily LinkedIn Quote Publisher...")
+    
+    sheets_service = get_google_services()
+    
+    print("Fetching previous quotes...")
+    previous_quotes = get_previous_quotes(sheets_service)
+    
+    print("Generating new unique quote...")
+    quote = generate_unique_quote(previous_quotes)
+    print(f"Generated Quote: {quote}")
+    
+    print("Creating quote image locally...")
+    image_path = create_local_image(quote)
+    
+    print("Uploading image to LinkedIn...")
+    asset_urn = upload_image_to_linkedin(image_path)
+    
+    print("Publishing post...")
+    post_url = post_to_linkedin(quote, asset_urn)
+    print(f"Published successfully! URL: {post_url}")
+    
+    print("Logging to Google Sheets...")
+    append_to_sheet(sheets_service, quote, post_url)
+    
+    print("Workflow completed successfully!")
+
+if __name__ == "__main__":
+    main()

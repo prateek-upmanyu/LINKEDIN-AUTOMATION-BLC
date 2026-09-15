@@ -21,7 +21,7 @@ def generate_unique_quote(previous_quotes):
     # Using Gemini 1.5 Flash for quick text generation
     model = genai.GenerativeModel('gemini-2.5-flash')
     
-    prompt = "Generate a highly motivating and original professional quote suitable for a LinkedIn post. Just provide the quote text, nothing else. No quotes marks."
+    prompt = "Generate a short, catchy, and highly motivating 1-2 sentence quote related to sales, cold calling, lead generation, or telecalling. It should align with the mindset of using a 'Bulk Leads Caller' app to maximize sales. Just provide the quote text, nothing else. No quote marks."
     
     for _ in range(5): # Try 5 times to get a unique quote
         response = model.generate_content(prompt)
@@ -74,9 +74,9 @@ def create_local_image(quote):
         
     width, height = img.size
     
-    # Wrap text to fit nicely between quotes
-    # The template seems to have quotes around x=20% and x=80%
-    lines = textwrap.wrap(quote, width=35) # Adjust width based on visual testing
+    # Wrap text to fit perfectly between the two telephone icons
+    # Reduced width to ensure it doesn't overlap with the icons on the sides
+    lines = textwrap.wrap(quote, width=22)
     
     # Calculate total text height
     total_text_height = sum([draw.textbbox((0, 0), line, font=font)[3] for line in lines])

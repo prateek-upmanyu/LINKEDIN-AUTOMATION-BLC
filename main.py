@@ -1,42 +1,20 @@
 import os
-import json
 import time
 from datetime import datetime
 import requests
 import google.generativeai as genai
-from google.oauth2 import service_account
-from googleapiclient.discovery import build
 
 # Environment Variables
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
-GOOGLE_SERVICE_ACCOUNT_JSON = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
-SPREADSHEET_ID = os.environ.get("SPREADSHEET_ID")
 LINKEDIN_ACCESS_TOKEN = os.environ.get("LINKEDIN_ACCESS_TOKEN")
 LINKEDIN_AUTHOR_URN = os.environ.get("LINKEDIN_AUTHOR_URN") # e.g., urn:li:person:123456789
 
-# Scopes for Google APIs
-SCOPES = [
-    'https://www.googleapis.com/auth/spreadsheets'
-]
-
-def get_google_services():
-    creds_dict = json.loads(GOOGLE_SERVICE_ACCOUNT_JSON)
-    creds = service_account.Credentials.from_service_account_info(creds_dict, scopes=SCOPES)
-    sheets_service = build('sheets', 'v4', credentials=creds)
-    return sheets_service
-
-def get_previous_quotes(sheets_service):
-    # Assuming quotes are in column B of 'Sheet1'
-    try:
-        result = sheets_service.spreadsheets().values().get(
-            spreadsheetId=SPREADSHEET_ID,
-            range='Sheet1!B:B'
-        ).execute()
-        values = result.get('values', [])
-        return [row[0] for row in values if row]
-    except Exception as e:
-        print(f"Error fetching quotes: {e}")
+def get_previous_quotes():
+    import os
+    if not os.path.exists('history.txt'):
         return []
+    with open('history.txt', 'r', encoding='utf-8') as f:
+        return [line.strip() for line in f if line.strip()]
 
 def generate_unique_quote(previous_quotes):
     genai.configure(api_key=GEMINI_API_KEY)
@@ -198,25 +176,17 @@ def post_to_linkedin(quote, asset_urn):
     post_id = res.json().get('id')
     return f"https://www.linkedin.com/feed/update/{post_id}"
 
-def append_to_sheet(sheets_service, quote, post_url):
+def append_to_history(quote, post_url):
+    from datetime import datetime
     date_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    values = [[date_str, quote, post_url]]
-    body = {'values': values}
-    
-    sheets_service.spreadsheets().values().append(
-        spreadsheetId=SPREADSHEET_ID,
-        range='Sheet1!A:C',
-        valueInputOption='USER_ENTERED',
-        body=body
-    ).execute()
+    with open('history.txt', 'a', encoding='utf-8') as f:
+        f.write(f"{date_str} | {quote} | {post_url}\n")
 
 def main():
     print("Starting Daily LinkedIn Quote Publisher...")
     
-    sheets_service = get_google_services()
-    
     print("Fetching previous quotes...")
-    previous_quotes = get_previous_quotes(sheets_service)
+    previous_quotes = get_previous_quotes()
     
     print("Generating new unique quote...")
     quote = generate_unique_quote(previous_quotes)
@@ -232,8 +202,8 @@ def main():
     post_url = post_to_linkedin(quote, asset_urn)
     print(f"Published successfully! URL: {post_url}")
     
-    print("Logging to Google Sheets...")
-    append_to_sheet(sheets_service, quote, post_url)
+    print("Logging to local history...")
+    append_to_history(quote, post_url)
     
     print("Workflow completed successfully!")
 

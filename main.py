@@ -19,7 +19,7 @@ def get_previous_quotes():
 def generate_unique_quote(previous_quotes):
     genai.configure(api_key=GEMINI_API_KEY)
     # Using Gemini 1.5 Flash for quick text generation
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    model = genai.GenerativeModel('gemini-pro')
     
     prompt = "Generate a highly motivating and original professional quote suitable for a LinkedIn post. Just provide the quote text, nothing else. No quotes marks."
     

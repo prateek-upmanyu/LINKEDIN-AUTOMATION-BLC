@@ -9,16 +9,16 @@ export async function encryptSecret(secret: string, publicKey: string) {
 }
 
 export async function getRepoPublicKey(owner: string, repo: string, token: string) {
-  const res = await fetch(https://api.github.com/repos///actions/secrets/public-key, {
+  const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/actions/secrets/public-key`, {
     headers: {
-      Authorization: 	oken ,
+      Authorization: `token ${token}`,
       Accept: 'application/vnd.github.v3+json',
       'X-GitHub-Api-Version': '2022-11-28',
     },
   });
 
   if (!res.ok) {
-    throw new Error(Failed to fetch public key: );
+    throw new Error(`Failed to fetch public key: ${res.statusText}`);
   }
 
   return res.json();
@@ -32,10 +32,10 @@ export async function putRepoSecret(
   keyId: string,
   token: string
 ) {
-  const res = await fetch(https://api.github.com/repos///actions/secrets/, {
+  const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/actions/secrets/${secretName}`, {
     method: 'PUT',
     headers: {
-      Authorization: 	oken ,
+      Authorization: `token ${token}`,
       Accept: 'application/vnd.github.v3+json',
       'X-GitHub-Api-Version': '2022-11-28',
     },
@@ -46,6 +46,6 @@ export async function putRepoSecret(
   });
 
   if (!res.ok && res.status !== 201 && res.status !== 204) {
-    throw new Error(Failed to set secret : );
+    throw new Error(`Failed to set secret ${secretName}: ${res.statusText}`);
   }
 }

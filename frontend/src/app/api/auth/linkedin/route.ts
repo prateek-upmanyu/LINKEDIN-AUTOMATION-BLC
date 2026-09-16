@@ -8,12 +8,12 @@ export async function GET() {
   }
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
-  const redirectUri = ${siteUrl}/api/auth/callback;
+  const redirectUri = `${siteUrl}/api/auth/callback`;
   
   const scope = 'w_member_social profile email openid';
   const state = Math.random().toString(36).substring(7);
   
-  const authUrl = https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=&redirect_uri=&state=&scope=;
+  const authUrl = `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&scope=${encodeURIComponent(scope)}`;
   
   return NextResponse.redirect(authUrl);
 }

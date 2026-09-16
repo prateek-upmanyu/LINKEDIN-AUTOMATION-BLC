@@ -7,17 +7,17 @@ export async function GET(request: Request) {
   const error = searchParams.get('error');
 
   if (error) {
-    return NextResponse.redirect(new URL(/?error=, request.url));
+    return NextResponse.redirect(new URL(`/?error=${error}`, request.url));
   }
 
   if (!code) {
-    return NextResponse.redirect(new URL(/?error=no_code, request.url));
+    return NextResponse.redirect(new URL(`/?error=no_code`, request.url));
   }
 
   const clientId = process.env.LINKEDIN_CLIENT_ID;
   const clientSecret = process.env.LINKEDIN_CLIENT_SECRET;
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
-  const redirectUri = ${siteUrl}/api/auth/callback;
+  const redirectUri = `${siteUrl}/api/auth/callback`;
   
   const tokenRes = await fetch('https://www.linkedin.com/oauth/v2/accessToken', {
     method: 'POST',
@@ -33,28 +33,28 @@ export async function GET(request: Request) {
 
   const tokenData = await tokenRes.json();
   if (!tokenRes.ok) {
-    return NextResponse.redirect(new URL(/?error=token_failed, request.url));
+    return NextResponse.redirect(new URL(`/?error=token_failed`, request.url));
   }
   
   const accessToken = tokenData.access_token;
 
   const userRes = await fetch('https://api.linkedin.com/v2/userinfo', {
-    headers: { Authorization: Bearer  },
+    headers: { Authorization: `Bearer ${accessToken}` },
   });
 
   const userData = await userRes.json();
   if (!userRes.ok) {
-    return NextResponse.redirect(new URL(/?error=user_failed, request.url));
+    return NextResponse.redirect(new URL(`/?error=user_failed`, request.url));
   }
   
-  const urn = urn:li:person:;
+  const urn = `urn:li:person:${userData.sub}`;
 
   const githubPat = process.env.GITHUB_PAT;
   const repoOwner = process.env.GITHUB_REPO_OWNER || 'Rushikeshkhadke';
   const repoName = process.env.GITHUB_REPO_NAME || 'linkedin-quote-automation';
 
   if (!githubPat) {
-    return NextResponse.redirect(new URL(/?error=github_setup_missing, request.url));
+    return NextResponse.redirect(new URL(`/?error=github_setup_missing`, request.url));
   }
 
   try {
@@ -66,9 +66,9 @@ export async function GET(request: Request) {
     await putRepoSecret(repoOwner, repoName, 'LINKEDIN_ACCESS_TOKEN', encryptedToken, key_id, githubPat);
     await putRepoSecret(repoOwner, repoName, 'LINKEDIN_AUTHOR_URN', encryptedUrn, key_id, githubPat);
 
-    return NextResponse.redirect(new URL(/?success=true, request.url));
+    return NextResponse.redirect(new URL(`/?success=true`, request.url));
   } catch (err) {
     console.error(err);
-    return NextResponse.redirect(new URL(/?error=github_update_failed, request.url));
+    return NextResponse.redirect(new URL(`/?error=github_update_failed`, request.url));
   }
 }

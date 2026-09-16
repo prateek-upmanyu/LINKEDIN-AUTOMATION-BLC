@@ -1,0 +1,109 @@
+[
+  {
+    "parameters": {
+      "method": "POST",
+      "url": "https://api.linkedin.com/v2/assets?action=registerUpload",
+      "sendHeaders": true,
+      "headerParameters": {
+        "parameters": [
+          {
+            "name": "Authorization",
+            "value": "Bearer PASTE_YOUR_LINKEDIN_TOKEN_HERE"
+          },
+          {
+            "name": "X-Restli-Protocol-Version",
+            "value": "2.0.0"
+          }
+        ]
+      },
+      "sendBody": true,
+      "bodyParameters": {
+        "parameters": [
+          {
+            "name": "registerUploadRequest.recipes[0]",
+            "value": "urn:li:digitalmediaRecipe:feedshare-image"
+          },
+          {
+            "name": "registerUploadRequest.owner",
+            "value": "PASTE_YOUR_URN_HERE"
+          },
+          {
+            "name": "registerUploadRequest.serviceRelationships[0].relationshipType",
+            "value": "OWNER"
+          },
+          {
+            "name": "registerUploadRequest.serviceRelationships[0].identifier",
+            "value": "urn:li:userGeneratedContent"
+          }
+        ]
+      },
+      "options": {}
+    },
+    "name": "1. Register Image Upload",
+    "type": "n8n-nodes-base.httpRequest",
+    "typeVersion": 4,
+    "position": [
+      1100,
+      300
+    ]
+  },
+  {
+    "parameters": {
+      "method": "PUT",
+      "url": "={{$json.value.uploadMechanism[\"com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest\"].uploadUrl}}",
+      "sendHeaders": true,
+      "headerParameters": {
+        "parameters": [
+          {
+            "name": "Authorization",
+            "value": "Bearer PASTE_YOUR_LINKEDIN_TOKEN_HERE"
+          }
+        ]
+      },
+      "sendBody": true,
+      "contentType": "raw",
+      "rawContentType": "image/png",
+      "bodyParameters": {
+        "parameters": []
+      },
+      "options": {}
+    },
+    "name": "2. Upload Binary Image",
+    "type": "n8n-nodes-base.httpRequest",
+    "typeVersion": 4,
+    "position": [
+      1300,
+      300
+    ]
+  },
+  {
+    "parameters": {
+      "method": "POST",
+      "url": "https://api.linkedin.com/v2/ugcPosts",
+      "sendHeaders": true,
+      "headerParameters": {
+        "parameters": [
+          {
+            "name": "Authorization",
+            "value": "Bearer PASTE_YOUR_LINKEDIN_TOKEN_HERE"
+          },
+          {
+            "name": "X-Restli-Protocol-Version",
+            "value": "2.0.0"
+          }
+        ]
+      },
+      "sendBody": true,
+      "specifyBody": "json",
+      "jsonBody": "={\n  \"author\": \"PASTE_YOUR_URN_HERE\",\n  \"lifecycleState\": \"PUBLISHED\",\n  \"specificContent\": {\n    \"com.linkedin.ugc.ShareContent\": {\n      \"shareCommentary\": {\n        \"text\": \"{{ $node[\"Gemini API\"].json.candidates[0].content.parts[0].text.split(\\\"AUTHOR:\\\")[0].replace(\\\"QUOTE:\\\", \\\"\\\").trim() }} - {{ $node[\"Gemini API\"].json.candidates[0].content.parts[0].text.split(\\\"AUTHOR:\\\")[1].trim() }}\\n\\n#BulkLeadsCaller #Sales #Motivation\"\n      },\n      \"shareMediaCategory\": \"IMAGE\",\n      \"media\": [\n        {\n          \"status\": \"READY\",\n          \"media\": \"{{ $node[\\\"1. Register Image Upload\\\"].json.value.asset }}\"\n        }\n      ]\n    }\n  },\n  \"visibility\": {\n    \"com.linkedin.ugc.MemberNetworkVisibility\": \"PUBLIC\"\n  }\n}",
+      "options": {}
+    },
+    "name": "3. Publish to LinkedIn",
+    "type": "n8n-nodes-base.httpRequest",
+    "typeVersion": 4,
+    "position": [
+      1500,
+      300
+    ]
+  }
+]

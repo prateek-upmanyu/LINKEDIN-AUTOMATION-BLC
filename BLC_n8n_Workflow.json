@@ -1,0 +1,136 @@
+{
+  "name": "BLC Daily LinkedIn Quotes (Google Slides)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "30 3 * * *"
+            }
+          ]
+        }
+      },
+      "name": "Schedule Trigger (9:00 AM IST)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=YOUR_GEMINI_KEY",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "contents",
+              "value": "=[ { \"parts\": [ { \"text\": \"Provide a powerful 2-3 line quote about sales. Format exactly as: QUOTE: {quote} AUTHOR: {author}\" } ] } ]"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Gemini API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [420, 300]
+    },
+    {
+      "parameters": {
+        "resource": "presentation",
+        "operation": "update",
+        "presentationId": "PASTE_YOUR_GOOGLE_SLIDE_ID_HERE",
+        "replacementsUi": {
+          "replacementsValues": [
+            {
+              "matchCase": false,
+              "replaceText": "={{$json[\"quote_text\"]}}",
+              "containsText": "{{QUOTE}}"
+            },
+            {
+              "matchCase": false,
+              "replaceText": "={{$json[\"author_name\"]}}",
+              "containsText": "{{AUTHOR}}"
+            }
+          ]
+        }
+      },
+      "name": "Update Google Slide",
+      "type": "n8n-nodes-base.googleSlides",
+      "typeVersion": 1,
+      "position": [640, 300]
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "operation": "download",
+        "fileId": "PASTE_YOUR_GOOGLE_SLIDE_ID_HERE",
+        "mimeType": "image/png"
+      },
+      "name": "Download as Image",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 2,
+      "position": [860, 300]
+    },
+    {
+      "parameters": {
+        "text": "={{$json[\"quote_text\"]}} - {{$json[\"author_name\"]}}\n\n#BulkLeadsCaller #Sales #Motivation",
+        "additionalFields": {}
+      },
+      "name": "Post to LinkedIn",
+      "type": "n8n-nodes-base.linkedIn",
+      "typeVersion": 1,
+      "position": [1080, 300]
+    }
+  ],
+  "connections": {
+    "Schedule Trigger (9:00 AM IST)": {
+      "main": [
+        [
+          {
+            "node": "Gemini API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini API": {
+      "main": [
+        [
+          {
+            "node": "Update Google Slide",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Google Slide": {
+      "main": [
+        [
+          {
+            "node": "Download as Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download as Image": {
+      "main": [
+        [
+          {
+            "node": "Post to LinkedIn",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {}
+}

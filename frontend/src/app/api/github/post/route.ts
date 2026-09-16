@@ -3,8 +3,8 @@ import { NextResponse } from 'next/server';
 export async function POST(request: Request) {
   try {
     const githubPat = process.env.GITHUB_PAT;
-    const repoOwner = process.env.GITHUB_REPO_OWNER || 'Rushikeshkhadke';
-    const repoName = process.env.GITHUB_REPO_NAME || 'linkedin-quote-automation';
+    const repoOwner = process.env.GITHUB_REPO_OWNER || process.env.VERCEL_GIT_REPO_OWNER || 'Rushikeshkhadke';
+    const repoName = process.env.GITHUB_REPO_NAME || process.env.VERCEL_GIT_REPO_SLUG || 'linkedin-quote-automation';
     const workflowId = 'publish_quote.yml';
 
     if (!githubPat) {

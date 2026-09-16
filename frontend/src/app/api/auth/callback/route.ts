@@ -16,7 +16,7 @@ export async function GET(request: Request) {
 
   const clientId = process.env.LINKEDIN_CLIENT_ID;
   const clientSecret = process.env.LINKEDIN_CLIENT_SECRET;
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000'));
   const redirectUri = `${siteUrl}/api/auth/callback`;
   
   const tokenRes = await fetch('https://www.linkedin.com/oauth/v2/accessToken', {
@@ -50,8 +50,8 @@ export async function GET(request: Request) {
   const urn = `urn:li:person:${userData.sub}`;
 
   const githubPat = process.env.GITHUB_PAT;
-  const repoOwner = process.env.GITHUB_REPO_OWNER || 'Rushikeshkhadke';
-  const repoName = process.env.GITHUB_REPO_NAME || 'linkedin-quote-automation';
+  const repoOwner = process.env.GITHUB_REPO_OWNER || process.env.VERCEL_GIT_REPO_OWNER || 'Rushikeshkhadke';
+  const repoName = process.env.GITHUB_REPO_NAME || process.env.VERCEL_GIT_REPO_SLUG || 'linkedin-quote-automation';
 
   if (!githubPat) {
     return NextResponse.redirect(new URL(`/?error=github_setup_missing`, request.url));

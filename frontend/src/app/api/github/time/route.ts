@@ -26,8 +26,8 @@ export async function POST(request: Request) {
     const cron = `${minutes} ${hours} * * *`;
 
     const githubPat = process.env.GITHUB_PAT;
-    const repoOwner = process.env.GITHUB_REPO_OWNER || 'Rushikeshkhadke';
-    const repoName = process.env.GITHUB_REPO_NAME || 'linkedin-quote-automation';
+    const repoOwner = process.env.GITHUB_REPO_OWNER || process.env.VERCEL_GIT_REPO_OWNER || 'Rushikeshkhadke';
+    const repoName = process.env.GITHUB_REPO_NAME || process.env.VERCEL_GIT_REPO_SLUG || 'linkedin-quote-automation';
     const path = '.github/workflows/publish_quote.yml';
 
     if (!githubPat) {

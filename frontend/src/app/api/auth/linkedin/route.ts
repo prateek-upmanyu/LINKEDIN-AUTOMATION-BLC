@@ -7,7 +7,7 @@ export async function GET() {
     return NextResponse.json({ error: 'LINKEDIN_CLIENT_ID is not configured' }, { status: 500 });
   }
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000'));
   const redirectUri = `${siteUrl}/api/auth/callback`;
   
   const scope = 'w_member_social profile email openid';

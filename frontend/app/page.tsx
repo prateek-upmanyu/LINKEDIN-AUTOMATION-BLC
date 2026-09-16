@@ -2,7 +2,7 @@
 
 import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { LinkedinIcon, CheckCircle, AlertCircle, Clock } from 'lucide-react';
+import { Linkedin, CheckCircle, AlertCircle, Clock } from 'lucide-react';
 
 function Dashboard() {
   const searchParams = useSearchParams();
@@ -44,7 +44,7 @@ function Dashboard() {
           <div className="space-y-4">
             <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
               <h3 className="font-semibold text-slate-700 flex items-center gap-2 mb-2">
-                <LinkedinIcon className="w-5 h-5 text-[#0A66C2]" />
+                <Linkedin className="w-5 h-5 text-[#0A66C2]" />
                 1. Connect LinkedIn
               </h3>
               <p className="text-sm text-slate-500 mb-4">Authorize the app to post daily quotes on your behalf.</p>
@@ -52,7 +52,7 @@ function Dashboard() {
                 href="/api/auth/linkedin"
                 className="w-full flex items-center justify-center gap-2 bg-[#0A66C2] hover:bg-[#084e96] text-white py-3 px-4 rounded-lg font-medium transition-colors"
               >
-                <LinkedinIcon className="w-5 h-5" />
+                <Linkedin className="w-5 h-5" />
                 Connect with LinkedIn
               </a>
             </div>

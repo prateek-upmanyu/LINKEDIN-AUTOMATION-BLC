@@ -1,6 +1,5 @@
 import sodium from 'libsodium-wrappers';
 
-// Function to encrypt a secret using libsodium
 export async function encryptSecret(secret: string, publicKey: string) {
   await sodium.ready;
   const binkey = sodium.from_base64(publicKey, sodium.base64_variants.ORIGINAL);
@@ -9,24 +8,22 @@ export async function encryptSecret(secret: string, publicKey: string) {
   return sodium.to_base64(encBytes, sodium.base64_variants.ORIGINAL);
 }
 
-// Function to get the public key for the repository
 export async function getRepoPublicKey(owner: string, repo: string, token: string) {
-  const res = await fetch(\https://api.github.com/repos/\/\/actions/secrets/public-key\, {
+  const res = await fetch(https://api.github.com/repos///actions/secrets/public-key, {
     headers: {
-      Authorization: \	oken \\,
+      Authorization: 	oken ,
       Accept: 'application/vnd.github.v3+json',
       'X-GitHub-Api-Version': '2022-11-28',
     },
   });
 
   if (!res.ok) {
-    throw new Error(\Failed to fetch public key: \\);
+    throw new Error(Failed to fetch public key: );
   }
 
-  return res.json(); // returns { key_id, key }
+  return res.json();
 }
 
-// Function to create or update a repository secret
 export async function putRepoSecret(
   owner: string,
   repo: string,
@@ -35,10 +32,10 @@ export async function putRepoSecret(
   keyId: string,
   token: string
 ) {
-  const res = await fetch(\https://api.github.com/repos/\/\/actions/secrets/\\, {
+  const res = await fetch(https://api.github.com/repos///actions/secrets/, {
     method: 'PUT',
     headers: {
-      Authorization: \	oken \\,
+      Authorization: 	oken ,
       Accept: 'application/vnd.github.v3+json',
       'X-GitHub-Api-Version': '2022-11-28',
     },
@@ -49,6 +46,6 @@ export async function putRepoSecret(
   });
 
   if (!res.ok && res.status !== 201 && res.status !== 204) {
-    throw new Error(\Failed to set secret \: \\);
+    throw new Error(Failed to set secret : );
   }
 }

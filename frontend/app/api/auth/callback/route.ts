@@ -7,19 +7,18 @@ export async function GET(request: Request) {
   const error = searchParams.get('error');
 
   if (error) {
-    return NextResponse.redirect(new URL(\/?error=\\, request.url));
+    return NextResponse.redirect(new URL(/?error=, request.url));
   }
 
   if (!code) {
-    return NextResponse.json({ error: 'No code provided' }, { status: 400 });
+    return NextResponse.redirect(new URL(/?error=no_code, request.url));
   }
 
   const clientId = process.env.LINKEDIN_CLIENT_ID;
   const clientSecret = process.env.LINKEDIN_CLIENT_SECRET;
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
-  const redirectUri = \\/api/auth/callback\;
+  const redirectUri = ${siteUrl}/api/auth/callback;
   
-  // 1. Exchange code for Access Token
   const tokenRes = await fetch('https://www.linkedin.com/oauth/v2/accessToken', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -34,31 +33,28 @@ export async function GET(request: Request) {
 
   const tokenData = await tokenRes.json();
   if (!tokenRes.ok) {
-    return NextResponse.redirect(new URL(\/?error=token_failed\, request.url));
+    return NextResponse.redirect(new URL(/?error=token_failed, request.url));
   }
   
   const accessToken = tokenData.access_token;
 
-  // 2. Fetch User URN (from userinfo endpoint for OpenID)
   const userRes = await fetch('https://api.linkedin.com/v2/userinfo', {
-    headers: { Authorization: \Bearer \\ },
+    headers: { Authorization: Bearer  },
   });
 
   const userData = await userRes.json();
   if (!userRes.ok) {
-    return NextResponse.redirect(new URL(\/?error=user_failed\, request.url));
+    return NextResponse.redirect(new URL(/?error=user_failed, request.url));
   }
   
-  const urn = \urn:li:person:\\;
+  const urn = urn:li:person:;
 
-  // 3. Encrypt and save to GitHub
   const githubPat = process.env.GITHUB_PAT;
   const repoOwner = process.env.GITHUB_REPO_OWNER || 'Rushikeshkhadke';
   const repoName = process.env.GITHUB_REPO_NAME || 'linkedin-quote-automation';
 
   if (!githubPat) {
-    console.error('GITHUB_PAT is missing');
-    return NextResponse.redirect(new URL(\/?error=github_setup_missing\, request.url));
+    return NextResponse.redirect(new URL(/?error=github_setup_missing, request.url));
   }
 
   try {
@@ -70,9 +66,9 @@ export async function GET(request: Request) {
     await putRepoSecret(repoOwner, repoName, 'LINKEDIN_ACCESS_TOKEN', encryptedToken, key_id, githubPat);
     await putRepoSecret(repoOwner, repoName, 'LINKEDIN_AUTHOR_URN', encryptedUrn, key_id, githubPat);
 
-    return NextResponse.redirect(new URL(\/?success=true\, request.url));
+    return NextResponse.redirect(new URL(/?success=true, request.url));
   } catch (err) {
-    console.error('GitHub update error:', err);
-    return NextResponse.redirect(new URL(\/?error=github_update_failed\, request.url));
+    console.error(err);
+    return NextResponse.redirect(new URL(/?error=github_update_failed, request.url));
   }
 }

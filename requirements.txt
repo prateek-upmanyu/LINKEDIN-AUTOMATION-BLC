@@ -1,6 +1,3 @@
-google-api-python-client
-google-auth-httplib2
-google-auth-oauthlib
-google-generativeai
-requests
-Pillow
+anthropic>=0.34.0
+Pillow>=10.0.0
+requests>=2.31.0

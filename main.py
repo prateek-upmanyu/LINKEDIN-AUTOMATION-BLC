@@ -1,45 +1,94 @@
 import os
+import sys
+import json
+import textwrap
+import urllib.request
 from datetime import datetime
 import requests
-import google.generativeai as genai
+from PIL import Image, ImageDraw, ImageFont
 
-# Environment Variables
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+# ==========================================
+# CONFIGURATION & ENVIRONMENT VARIABLES
+# ==========================================
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
 LINKEDIN_ACCESS_TOKEN = os.environ.get("LINKEDIN_ACCESS_TOKEN")
 LINKEDIN_AUTHOR_URN = os.environ.get("LINKEDIN_AUTHOR_URN")
 
-def get_previous_quotes():
-    if not os.path.exists('history.txt'):
+TEMPLATE_PATH = "template.png"
+OUTPUT_IMAGE_PATH = "quote_output.png"
+HISTORY_FILE = "history.txt"
+
+# Bounding box for quote text area (between opening and closing telephone quote marks)
+# Template image size: 737 x 1024 px
+TEXT_LEFT = 175
+TEXT_RIGHT = 565
+TEXT_TOP = 438
+TEXT_BOTTOM = 598
+TEXT_CENTER_X = (TEXT_LEFT + TEXT_RIGHT) // 2
+MAX_TEXT_WIDTH = TEXT_RIGHT - TEXT_LEFT      # 390 px
+MAX_TEXT_HEIGHT = TEXT_BOTTOM - TEXT_TOP     # 160 px
+
+
+def get_previous_quotes(history_path=HISTORY_FILE):
+    """Reads past quotes from history.txt to avoid duplicates."""
+    if not os.path.exists(history_path):
         return []
-    with open('history.txt', 'r', encoding='utf-8') as f:
-        return [line.strip() for line in f if line.strip()]
+    quotes = []
+    with open(history_path, "r", encoding="utf-8") as f:
+        for line in f:
+            parts = line.strip().split(" | ")
+            if len(parts) >= 2:
+                quotes.append(parts[1])
+    return quotes
+
 
 def generate_unique_quote(previous_quotes):
-    genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel('gemini-2.5-flash')
+    """
+    Uses Anthropic Claude API to generate a verified quote from a renowned sales/business leader.
+    Ensures quote is not a duplicate from history.
+    """
+    if not ANTHROPIC_API_KEY:
+        raise ValueError("ANTHROPIC_API_KEY environment variable is missing.")
 
-    prompt = """Find a real, famous quote from a well-known person (like Grant Cardone, Steve Jobs, Zig Ziglar, Brian Tracy, Jeffrey Gitomer, Gary Vaynerchuk, Warren Buffett, Napoleon Hill, or other famous sales/business leaders) related to sales, cold calling, lead generation, or business success.
+    import anthropic
+    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
-Return ONLY in this exact format (two lines, nothing else):
-QUOTE: [the quote text here]
-AUTHOR: [Full Name]"""
+    prompt = """Find a real, verified, inspiring quote from a well-known sales, business, or leadership authority (such as Brian Tracy, Jeffrey Gitomer, Zig Ziglar, Gary Vaynerchuk, Grant Cardone, Steve Jobs, Warren Buffett, Napoleon Hill, Dale Carnegie, or Mark Cuban) specifically related to sales, cold calling, lead generation, resilience, or business growth.
 
-    for _ in range(5):
-        response = model.generate_content(prompt)
-        text = response.text.strip()
+Rules:
+1. Do NOT include quotation marks in the QUOTE line.
+2. The quote should be impactful and concise (between 10 to 25 words).
+3. Return ONLY in this exact 2-line format with no extra markdown:
+QUOTE: [Plain quote text without quotation marks]
+AUTHOR: [Full Name of the Author]"""
 
+    recent_history = "\n".join(previous_quotes[-20:]) if previous_quotes else "None"
+    system_instruction = f"You are a sales & leadership content curator for Bulk Leads Caller. Do not repeat any of these recent quotes:\n{recent_history}"
+
+    for attempt in range(5):
+        response = client.messages.create(
+            model="claude-3-5-sonnet-20241022",
+            max_tokens=200,
+            temperature=0.7,
+            system=system_instruction,
+            messages=[{"role": "user", "content": prompt}],
+        )
+
+        response_text = response.content[0].text.strip()
         quote = ""
         author = ""
-        for line in text.split('\n'):
+
+        for line in response_text.split("\n"):
             line = line.strip()
-            if line.startswith('QUOTE:'):
-                quote = line.replace('QUOTE:', '').strip().strip('"').strip("'")
-            elif line.startswith('AUTHOR:'):
-                author = line.replace('AUTHOR:', '').strip()
+            if line.startswith("QUOTE:"):
+                quote = line.replace("QUOTE:", "").strip().strip('"').strip("'").strip("“").strip("”")
+            elif line.startswith("AUTHOR:"):
+                author = line.replace("AUTHOR:", "").strip()
 
         if not quote or not author:
             continue
 
+        # Check for duplication
         is_duplicate = any(
             quote.lower() in prev.lower() or prev.lower() in quote.lower()
             for prev in previous_quotes
@@ -47,202 +96,254 @@ AUTHOR: [Full Name]"""
         if not is_duplicate:
             return quote, author
 
-    raise Exception("Failed to generate a unique quote after 5 attempts.")
+    # If loop completes without unique quote, return latest generated
+    if quote and author:
+        return quote, author
 
-def create_local_image(quote, author):
-    from PIL import Image, ImageDraw, ImageFont
-    import textwrap
-    import urllib.request
-    import os
+    raise RuntimeError("Failed to generate quote from Anthropic Claude API.")
 
-    template_path = 'template.png'
-    output_path = 'quote.png'
 
+def get_font(font_path, font_size, default_type="bold"):
+    """Loads a truetype font with automatic fallback."""
+    if os.path.exists(font_path):
+        try:
+            return ImageFont.truetype(font_path, font_size)
+        except Exception:
+            pass
+
+    # Try common system fonts
+    system_candidates = (
+        ["C:\\Windows\\Fonts\\arialbd.ttf", "C:\\Windows\\Fonts\\georgiab.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"]
+        if default_type == "bold"
+        else ["C:\\Windows\\Fonts\\arial.ttf", "C:\\Windows\\Fonts\\georgia.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"]
+    )
+
+    for cand in system_candidates:
+        if os.path.exists(cand):
+            try:
+                return ImageFont.truetype(cand, font_size)
+            except Exception:
+                continue
+
+    return ImageFont.load_default()
+
+
+def render_quote_image(quote, author, template_path=TEMPLATE_PATH, output_path=OUTPUT_IMAGE_PATH):
+    """
+    Renders quote and author name on template.png using Pillow.
+    - Quote is centered in the designated text area.
+    - No quotation marks added (telephones are baked into the template).
+    - Author placed in bottom-right corner below the quote area.
+    """
     if not os.path.exists(template_path):
-        raise Exception(f"Template image {template_path} not found.")
+        raise FileNotFoundError(f"Template image '{template_path}' not found.")
 
-    img = Image.open(template_path).convert('RGB')
+    # Ensure Roboto / serif font is downloaded locally if not present
+    bold_font_path = "Roboto-Bold.ttf"
+    regular_font_path = "Roboto-Regular.ttf"
+
+    if not os.path.exists(bold_font_path):
+        try:
+            urllib.request.urlretrieve(
+                "https://github.com/googlefonts/roboto/raw/main/src/hinted/Roboto-Bold.ttf",
+                bold_font_path,
+            )
+        except Exception as e:
+            print(f"Note: Could not download Roboto-Bold ({e}), using system font fallback.")
+
+    if not os.path.exists(regular_font_path):
+        try:
+            urllib.request.urlretrieve(
+                "https://github.com/googlefonts/roboto/raw/main/src/hinted/Roboto-Regular.ttf",
+                regular_font_path,
+            )
+        except Exception as e:
+            print(f"Note: Could not download Roboto-Regular ({e}), using system font fallback.")
+
+    img = Image.open(template_path).convert("RGB")
     draw = ImageDraw.Draw(img)
 
-    # Download fonts if not present
-    bold_path = 'Roboto-Bold.ttf'
-    regular_path = 'Roboto-Regular.ttf'
-    if not os.path.exists(bold_path):
-        try:
-            urllib.request.urlretrieve("https://github.com/googlefonts/roboto/raw/main/src/hinted/Roboto-Bold.ttf", bold_path)
-        except Exception:
-            pass
-
-    if not os.path.exists(regular_path):
-        try:
-            urllib.request.urlretrieve("https://github.com/googlefonts/roboto/raw/main/src/hinted/Roboto-Regular.ttf", regular_path)
-        except Exception:
-            pass
-
-    # HARD boundaries - text NEVER crosses these
-    L   = 175  # left boundary
-    R   = 565  # right boundary
-    TOP = 440  # top boundary
-    BOT = 598  # bottom boundary
-    CX  = (L + R) // 2
-    MAX_W = R - L
-    MAX_H = BOT - TOP
-
-    # Try font sizes from large to small until everything fits
-    font_size = 38
+    # Dynamic Font Sizing & Multi-line Wrapping
+    selected_font_size = 32
     lines = []
-    font_q = None
+    font_quote = None
 
-    for f_size in range(38, 16, -1):
-        try:
-            font_q = ImageFont.truetype(bold_path, f_size)
-        except Exception:
-            try:
-                font_q = ImageFont.truetype('C:\\Windows\\Fonts\\arialbd.ttf', f_size)
-            except Exception:
-                font_q = ImageFont.load_default()
+    for f_size in range(34, 16, -1):
+        font_q = get_font(bold_font_path, f_size, "bold")
+        line_height = int(f_size * 1.35)
 
-        LINE_H = int(f_size * 1.35)
-
-        # Find max chars_per_line that doesn't exceed MAX_W
-        cpw = 40
-        for w in range(40, 3, -1):
-            raw = textwrap.wrap(quote, width=w)
-            # Check pixel width of each line
-            if all(draw.textbbox((0,0), ln, font=font_q)[2] - draw.textbbox((0,0), ln, font=font_q)[0] <= MAX_W for ln in raw):
-                cpw = w
+        best_wrap = 36
+        for wrap_w in range(36, 10, -1):
+            wrapped_test = textwrap.wrap(quote, width=wrap_w)
+            # Verify that every wrapped line fits inside MAX_TEXT_WIDTH
+            if all(
+                (draw.textbbox((0, 0), ln, font=font_q)[2] - draw.textbbox((0, 0), ln, font=font_q)[0]) <= MAX_TEXT_WIDTH
+                for ln in wrapped_test
+            ):
+                best_wrap = wrap_w
                 break
-        
-        lines = textwrap.wrap(quote, width=cpw)
 
-        # Check total height fits
-        if len(lines) * LINE_H <= MAX_H:
-            font_size = f_size
+        test_lines = textwrap.wrap(quote, width=best_wrap)
+        total_height = len(test_lines) * line_height
+
+        if total_height <= MAX_TEXT_HEIGHT:
+            selected_font_size = f_size
+            lines = test_lines
+            font_quote = font_q
             break
 
-    # Draw centered in zone
-    y0 = (TOP + BOT) // 2 - (len(lines) * LINE_H) // 2
+    if not font_quote:
+        font_quote = get_font(bold_font_path, 20, "bold")
+        lines = textwrap.wrap(quote, width=28)
+
+    line_height = int(selected_font_size * 1.35)
+    total_text_height = len(lines) * line_height
+    start_y = (TEXT_TOP + TEXT_BOTTOM) // 2 - (total_text_height // 2)
+
+    # Render centered quote lines (clean crisp white)
     for i, line in enumerate(lines):
-        bb = draw.textbbox((0,0), line, font=font_q)
-        lw = bb[2] - bb[0]
-        x  = CX - lw // 2
-        # Safety clamp
-        x  = max(L, min(x, R - lw))
-        draw.text((x, y0 + i*LINE_H), line, font=font_q, fill=(255,255,255))
+        bbox = draw.textbbox((0, 0), line, font=font_quote)
+        line_w = bbox[2] - bbox[0]
+        x = TEXT_CENTER_X - (line_w // 2)
+        draw.text((x, start_y + (i * line_height)), line, font=font_quote, fill=(255, 255, 255))
 
-    # Author: below right icon, right-aligned, never outside R
-    try:
-        font_a = ImageFont.truetype(regular_path, 20)
-    except Exception:
-        try:
-            font_a = ImageFont.truetype('C:\\Windows\\Fonts\\arial.ttf', 20)
-        except Exception:
-            font_a = font_q
+    # Render author name in bottom-right corner below the quote area
+    author_font = get_font(regular_font_path, 18, "regular")
+    author_text = f"— {author}"
+    bbox_author = draw.textbbox((0, 0), author_text, font=author_font)
+    author_w = bbox_author[2] - bbox_author[0]
 
-    aline = f"— {author}"
-    bb = draw.textbbox((0,0), aline, font=font_a)
-    aw = bb[2] - bb[0]
-    draw.text((R - aw, BOT + 10), aline, font=font_a, fill=(200,200,255))
+    # Right-aligned to TEXT_RIGHT, positioned just below the closing quote icon
+    author_x = TEXT_RIGHT - author_w
+    author_y = TEXT_BOTTOM + 14
+    draw.text((author_x, author_y), author_text, font=author_font, fill=(205, 215, 255))
 
-    img.save(output_path)
+    img.save(output_path, quality=95)
+    print(f"Generated quote image saved to '{output_path}'.")
     return output_path
 
+
 def upload_image_to_linkedin(image_path):
+    """Registers and uploads image to LinkedIn Assets API."""
+    if not LINKEDIN_ACCESS_TOKEN or not LINKEDIN_AUTHOR_URN:
+        raise ValueError("LINKEDIN_ACCESS_TOKEN or LINKEDIN_AUTHOR_URN is missing.")
+
     register_url = "https://api.linkedin.com/v2/assets?action=registerUpload"
     headers = {
         "Authorization": f"Bearer {LINKEDIN_ACCESS_TOKEN}",
         "Content-Type": "application/json",
-        "X-Restli-Protocol-Version": "2.0.0"
+        "X-Restli-Protocol-Version": "2.0.0",
     }
     register_body = {
         "registerUploadRequest": {
             "recipes": ["urn:li:digitalmediaRecipe:feedshare-image"],
             "owner": LINKEDIN_AUTHOR_URN,
-            "serviceRelationships": [{
-                "relationshipType": "OWNER",
-                "identifier": "urn:li:userGeneratedContent"
-            }]
+            "serviceRelationships": [
+                {
+                    "relationshipType": "OWNER",
+                    "identifier": "urn:li:userGeneratedContent",
+                }
+            ],
         }
     }
-    res      = requests.post(register_url, headers=headers, json=register_body)
-    res_data = res.json()
-    upload_url = res_data['value']['uploadMechanism']['com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest']['uploadUrl']
-    asset_urn  = res_data['value']['asset']
 
-    with open(image_path, 'rb') as f:
+    res = requests.post(register_url, headers=headers, json=register_body)
+    if res.status_code not in (200, 201):
+        raise RuntimeError(f"Failed to register upload with LinkedIn: {res.status_code} - {res.text}")
+
+    res_data = res.json()
+    upload_url = res_data["value"]["uploadMechanism"]["com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest"]["uploadUrl"]
+    asset_urn = res_data["value"]["asset"]
+
+    with open(image_path, "rb") as f:
         image_data = f.read()
 
     upload_headers = {"Authorization": f"Bearer {LINKEDIN_ACCESS_TOKEN}"}
     upload_res = requests.put(upload_url, headers=upload_headers, data=image_data)
     if upload_res.status_code not in (200, 201):
-        raise Exception(f"Failed to upload image to LinkedIn: {upload_res.text}")
+        raise RuntimeError(f"Failed to upload binary image to LinkedIn: {upload_res.status_code} - {upload_res.text}")
 
     return asset_urn
 
+
 def post_to_linkedin(quote, author, asset_urn):
+    """Publishes the image post to LinkedIn feed with formatted commentary."""
     post_url = "https://api.linkedin.com/v2/ugcPosts"
-    headers  = {
+    headers = {
         "Authorization": f"Bearer {LINKEDIN_ACCESS_TOKEN}",
         "Content-Type": "application/json",
-        "X-Restli-Protocol-Version": "2.0.0"
+        "X-Restli-Protocol-Version": "2.0.0",
     }
-    caption = f'"{quote}"\n— {author}\n\n#Motivation #Sales #BulkLeadsCaller #ColdCalling #LeadGeneration'
+
+    commentary = (
+        f'"{quote}"\n— {author}\n\n'
+        f"#Sales #ColdCalling #LeadGeneration #BulkLeadsCaller #SalesMotivation #BusinessGrowth"
+    )
+
     post_body = {
         "author": LINKEDIN_AUTHOR_URN,
         "lifecycleState": "PUBLISHED",
         "specificContent": {
             "com.linkedin.ugc.ShareContent": {
-                "shareCommentary": {"text": caption},
+                "shareCommentary": {"text": commentary},
                 "shareMediaCategory": "IMAGE",
-                "media": [{
-                    "status": "READY",
-                    "description": {"text": "Daily Quote"},
-                    "media": asset_urn,
-                    "title": {"text": "Daily Quote"}
-                }]
+                "media": [
+                    {
+                        "status": "READY",
+                        "description": {"text": f"Daily sales quote by {author}"},
+                        "media": asset_urn,
+                        "title": {"text": "Daily Quote - Bulk Leads Caller"},
+                    }
+                ],
             }
         },
-        "visibility": {
-            "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC"
-        }
+        "visibility": {"com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC"},
     }
+
     res = requests.post(post_url, headers=headers, json=post_body)
     if res.status_code != 201:
-        raise Exception(f"Failed to post to LinkedIn: {res.text}")
+        raise RuntimeError(f"Failed to publish post to LinkedIn: {res.status_code} - {res.text}")
 
-    post_id = res.json().get('id', '')
+    post_id = res.json().get("id", "")
     return f"https://www.linkedin.com/feed/update/{post_id}"
 
-def append_to_history(quote, author, post_url):
-    date_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    with open('history.txt', 'a', encoding='utf-8') as f:
+
+def append_to_history(quote, author, post_url, history_path=HISTORY_FILE):
+    """Appends successful quote publication to history.txt."""
+    date_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    with open(history_path, "a", encoding="utf-8") as f:
         f.write(f"{date_str} | {author}: {quote} | {post_url}\n")
 
+
 def main():
-    print("Starting Daily LinkedIn Quote Publisher...")
+    print("==========================================")
+    print(" Bulk Leads Caller - Daily Quote Publisher")
+    print("==========================================")
 
-    print("Fetching previous quotes...")
+    print("\n[1/5] Checking previous quote history...")
     previous_quotes = get_previous_quotes()
+    print(f"Loaded {len(previous_quotes)} quotes from history.")
 
-    print("Generating famous quote...")
+    print("\n[2/5] Generating verified sales/business quote via Anthropic Claude API...")
     quote, author = generate_unique_quote(previous_quotes)
-    print(f"Quote  : {quote}")
-    print(f"Author : {author}")
+    print(f"Quote : {quote}")
+    print(f"Author: {author}")
 
-    print("Creating quote image...")
-    image_path = create_local_image(quote, author)
+    print("\n[3/5] Rendering text onto template with Pillow...")
+    image_path = render_quote_image(quote, author)
 
-    print("Uploading image to LinkedIn...")
+    print("\n[4/5] Uploading image to LinkedIn...")
     asset_urn = upload_image_to_linkedin(image_path)
+    print(f"Uploaded asset URN: {asset_urn}")
 
-    print("Publishing post...")
+    print("\n[5/5] Publishing post to LinkedIn...")
     post_url = post_to_linkedin(quote, author, asset_urn)
-    print(f"Published! URL: {post_url}")
+    print(f"SUCCESS! Published post URL: {post_url}")
 
-    print("Logging to history...")
+    print("\nLogging quote to history...")
     append_to_history(quote, author, post_url)
+    print("Completed successfully.")
 
-    print("Done!")
 
 if __name__ == "__main__":
     main()

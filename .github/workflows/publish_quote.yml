@@ -1,9 +1,6 @@
 name: Daily LinkedIn Quote Publisher
 on:
-  schedule:
-    # 9:00 AM IST is 3:30 AM UTC
-    - cron: '25 8 * * *'
-  workflow_dispatch: # Allows manual trigger for testing
+  workflow_dispatch: # Manual trigger only, automated schedule stopped
 
 jobs:
   publish-quote:
@@ -36,6 +33,5 @@ jobs:
           git config --global user.name "GitHub Actions Bot"
           git config --global user.email "action@github.com"
           git add history.txt
-          # Only commit if there are changes
           git diff --quiet && git diff --staged --quiet || git commit -m "chore: Update quote history"
           git push

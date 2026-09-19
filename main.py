@@ -10,7 +10,7 @@ from PIL import Image, ImageDraw, ImageFont
 # ==========================================
 # CONFIGURATION & ENVIRONMENT VARIABLES
 # ==========================================
-ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 LINKEDIN_ACCESS_TOKEN = os.environ.get("LINKEDIN_ACCESS_TOKEN")
 LINKEDIN_AUTHOR_URN = os.environ.get("LINKEDIN_AUTHOR_URN")
 
@@ -44,37 +44,46 @@ def get_previous_quotes(history_path=HISTORY_FILE):
 
 def generate_unique_quote(previous_quotes):
     """
-    Uses Anthropic Claude API to generate a verified quote from a renowned sales/business leader.
+    Uses Google Gemini API (Free Tier) to generate a verified quote from a renowned sales/business leader.
     Ensures quote is not a duplicate from history.
     """
-    if not ANTHROPIC_API_KEY:
-        raise ValueError("ANTHROPIC_API_KEY environment variable is missing.")
+    if not GEMINI_API_KEY:
+        raise ValueError("GEMINI_API_KEY environment variable is missing.")
 
-    import anthropic
-    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+    import google.generativeai as genai
+    genai.configure(api_key=GEMINI_API_KEY)
 
-    prompt = """Find a real, verified, inspiring quote from a well-known sales, business, or leadership authority (such as Brian Tracy, Jeffrey Gitomer, Zig Ziglar, Gary Vaynerchuk, Grant Cardone, Steve Jobs, Warren Buffett, Napoleon Hill, Dale Carnegie, or Mark Cuban) specifically related to sales, cold calling, lead generation, resilience, or business growth.
+    # Use gemini-1.5-flash or gemini-2.0-flash (fast, reliable, generous free tier)
+    try:
+        model = genai.GenerativeModel("gemini-1.5-flash")
+    except Exception:
+        model = genai.GenerativeModel("gemini-pro")
+
+    recent_history = "\n".join(previous_quotes[-20:]) if previous_quotes else "None"
+
+    prompt = f"""You are a sales & leadership content curator for Bulk Leads Caller brand.
+Find a real, verified, inspiring quote from a well-known sales, business, or leadership authority (such as Brian Tracy, Jeffrey Gitomer, Zig Ziglar, Gary Vaynerchuk, Grant Cardone, Steve Jobs, Warren Buffett, Napoleon Hill, Dale Carnegie, or Mark Cuban) specifically related to sales, cold calling, lead generation, closing deals, resilience, or business growth.
+
+Do NOT repeat any of these recent quotes:
+{recent_history}
 
 Rules:
-1. Do NOT include quotation marks in the QUOTE line.
+1. Do NOT include quotation marks around the quote.
 2. The quote should be impactful and concise (between 10 to 25 words).
-3. Return ONLY in this exact 2-line format with no extra markdown:
+3. Return ONLY in this exact 2-line format with no other text or markdown:
 QUOTE: [Plain quote text without quotation marks]
 AUTHOR: [Full Name of the Author]"""
 
-    recent_history = "\n".join(previous_quotes[-20:]) if previous_quotes else "None"
-    system_instruction = f"You are a sales & leadership content curator for Bulk Leads Caller. Do not repeat any of these recent quotes:\n{recent_history}"
-
     for attempt in range(5):
-        response = client.messages.create(
-            model="claude-3-5-sonnet-20241022",
-            max_tokens=200,
-            temperature=0.7,
-            system=system_instruction,
-            messages=[{"role": "user", "content": prompt}],
-        )
+        try:
+            response = model.generate_content(prompt)
+            response_text = response.text.strip()
+        except Exception as e:
+            # Fallback to gemini-pro if flash is unavailable
+            fallback_model = genai.GenerativeModel("gemini-pro")
+            response = fallback_model.generate_content(prompt)
+            response_text = response.text.strip()
 
-        response_text = response.content[0].text.strip()
         quote = ""
         author = ""
 
@@ -96,11 +105,10 @@ AUTHOR: [Full Name of the Author]"""
         if not is_duplicate:
             return quote, author
 
-    # If loop completes without unique quote, return latest generated
     if quote and author:
         return quote, author
 
-    raise RuntimeError("Failed to generate quote from Anthropic Claude API.")
+    raise RuntimeError("Failed to generate a unique quote from Google Gemini API.")
 
 
 def get_font(font_path, font_size, default_type="bold"):
@@ -138,7 +146,6 @@ def render_quote_image(quote, author, template_path=TEMPLATE_PATH, output_path=O
     if not os.path.exists(template_path):
         raise FileNotFoundError(f"Template image '{template_path}' not found.")
 
-    # Ensure Roboto / serif font is downloaded locally if not present
     bold_font_path = "Roboto-Bold.ttf"
     regular_font_path = "Roboto-Regular.ttf"
 
@@ -175,7 +182,6 @@ def render_quote_image(quote, author, template_path=TEMPLATE_PATH, output_path=O
         best_wrap = 36
         for wrap_w in range(36, 10, -1):
             wrapped_test = textwrap.wrap(quote, width=wrap_w)
-            # Verify that every wrapped line fits inside MAX_TEXT_WIDTH
             if all(
                 (draw.textbbox((0, 0), ln, font=font_q)[2] - draw.textbbox((0, 0), ln, font=font_q)[0]) <= MAX_TEXT_WIDTH
                 for ln in wrapped_test
@@ -213,7 +219,6 @@ def render_quote_image(quote, author, template_path=TEMPLATE_PATH, output_path=O
     bbox_author = draw.textbbox((0, 0), author_text, font=author_font)
     author_w = bbox_author[2] - bbox_author[0]
 
-    # Right-aligned to TEXT_RIGHT, positioned just below the closing quote icon
     author_x = TEXT_RIGHT - author_w
     author_y = TEXT_BOTTOM + 14
     draw.text((author_x, author_y), author_text, font=author_font, fill=(205, 215, 255))
@@ -324,7 +329,7 @@ def main():
     previous_quotes = get_previous_quotes()
     print(f"Loaded {len(previous_quotes)} quotes from history.")
 
-    print("\n[2/5] Generating verified sales/business quote via Anthropic Claude API...")
+    print("\n[2/5] Generating verified sales quote via Google Gemini API (Free)...")
     quote, author = generate_unique_quote(previous_quotes)
     print(f"Quote : {quote}")
     print(f"Author: {author}")

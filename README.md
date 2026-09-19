@@ -1,6 +1,6 @@
 # 📞 Bulk Leads Caller — LinkedIn Daily Quote Automation
 
-Automated daily quote publisher for the **Bulk Leads Caller** brand page on LinkedIn. Every day at **9:00 AM IST**, this system generates a verified sales/lead generation quote from renowned business authors, renders it directly onto the branded template image using Pillow (without altering background, logo, or quote decorations), and publishes it to LinkedIn.
+Automated daily quote publisher for the **Bulk Leads Caller** brand page on LinkedIn. Every day at **9:00 AM IST**, this system generates a verified sales/lead generation quote using the **Google Gemini API (100% Free)**, renders it directly onto the branded template image using Pillow (without altering background, logo, or quote decorations), and publishes it to LinkedIn.
 
 ---
 
@@ -26,8 +26,8 @@ The template image (`template.png`) has dimensions **737 × 1024 px** with a dar
 ## 🚀 Tech Stack
 
 * **Python 3.10+ / 3.11**
+* **Google Gemini API (`gemini-1.5-flash`):** 100% Free tier, high reliability for sales quote generation.
 * **Pillow (`PIL`):** Dynamic multi-line wrapping, auto font-scaling, and crisp text rendering.
-* **Anthropic / Claude API (`claude-3-5-sonnet-20241022`):** Generates real, verified quotes from sales & business authorities.
 * **LinkedIn UGC Posts API:** Multi-step image asset registration, binary upload, and public post publishing.
 * **GitHub Actions:** Automated cron schedule (`30 3 * * *` = 9:00 AM IST) and manual triggers (`workflow_dispatch`).
 
@@ -35,13 +35,13 @@ The template image (`template.png`) has dimensions **737 × 1024 px** with a dar
 
 ## ⚙️ Setup & Configuration
 
-### 1. Required Environment Variables / GitHub Secrets
+### 1. Required GitHub Secrets
 
 Add the following 3 secrets to your GitHub repository (**Settings > Secrets and variables > Actions > New repository secret**):
 
 | Secret Name | Description | Example |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | Anthropic API key from Console | `sk-ant-api03-...` |
+| `GEMINI_API_KEY` | Free Google Gemini API Key from Google AI Studio | `AIzaSy...` |
 | `LINKEDIN_ACCESS_TOKEN` | OAuth 2.0 Access Token with posting permissions | `AQV...` |
 | `LINKEDIN_AUTHOR_URN` | URN of the Author (Person or Organization Page) | `urn:li:organization:12345678` or `urn:li:person:abcdef12` |
 
@@ -49,14 +49,14 @@ Add the following 3 secrets to your GitHub repository (**Settings > Secrets and 
 
 ### 2. Local Testing
 
-1. Clone repository and install dependencies:
+1. Install dependencies:
 ```bash
 pip install -r requirements.txt
 ```
 
 2. Create `.env` file (see `.env.example`) or export environment variables:
 ```bash
-export ANTHROPIC_API_KEY="your-anthropic-key"
+export GEMINI_API_KEY="your-gemini-api-key"
 export LINKEDIN_ACCESS_TOKEN="your-linkedin-token"
 export LINKEDIN_AUTHOR_URN="urn:li:organization:your-org-id"
 ```

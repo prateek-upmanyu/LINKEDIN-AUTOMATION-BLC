@@ -186,31 +186,32 @@ def get_font(font_path, font_size, default_type="bold"):
 
 def render_quote_image(quote, author, template_path=TEMPLATE_PATH, output_path=OUTPUT_IMAGE_PATH):
     """
-    Renders quote and author name on template.png using Pillow.
-    - Full Justification (Block D): Every line spans flush from TEXT_LEFT to TEXT_RIGHT.
-    - Opening telephone quotation icon frames top-left; closing telephone quotation icon frames bottom-right.
-    - No literal quotation marks added to text.
-    - Author placed in bottom-right corner below the quote block.
+    Replaces ONLY the quote text on template.png using Pillow.
+    - Uses official Bogart font.
+    - Natural word spacing (no artificial gaps or stretching).
+    - Centered horizontally (CENTER_X = 369) and vertically between the telephone quote icons.
+    - Preserves 100% of the original background, watermark, hanging phones, and logo.
     """
     if not os.path.exists(template_path):
         raise FileNotFoundError(f"Template image '{template_path}' not found.")
 
-    bold_font_path = "Bogart-SemiBold.ttf"
-    regular_font_path = "Bogart-Regular.ttf"
+    bold_font_path = "Bogart-Medium.ttf"
+    if not os.path.exists(bold_font_path):
+        bold_font_path = "Bogart-SemiBold.ttf"
 
     img = Image.open(template_path).convert("RGB")
     draw = ImageDraw.Draw(img)
 
-    # Dynamic Font Sizing & Balanced Line Wrapping
+    # Dynamic Font Sizing & Clean Multi-line Wrapping
     selected_font_size = 28
     lines = []
     font_quote = None
 
-    for f_size in range(32, 18, -1):
+    for f_size in range(30, 18, -1):
         font_q = get_font(bold_font_path, f_size, "bold")
-        line_height = int(f_size * 1.42)
+        line_height = int(f_size * 1.40)
 
-        for wrap_w in range(36, 12, -1):
+        for wrap_w in range(35, 14, -1):
             cand_lines = textwrap.wrap(quote, width=wrap_w)
             if len(cand_lines) * line_height <= MAX_TEXT_HEIGHT:
                 if all(
@@ -228,41 +229,16 @@ def render_quote_image(quote, author, template_path=TEMPLATE_PATH, output_path=O
         font_quote = get_font(bold_font_path, 22, "bold")
         lines = textwrap.wrap(quote, width=28)
 
-    line_height = int(selected_font_size * 1.42)
+    line_height = int(selected_font_size * 1.40)
     total_text_height = len(lines) * line_height
     start_y = (TEXT_TOP + TEXT_BOTTOM) // 2 - (total_text_height // 2)
 
-    # True Justified Alignment (Block D):
-    # Distribute word spacing so both left and right edges are perfectly flush vertical lines
-    for line_idx, line in enumerate(lines):
-        y = start_y + (line_idx * line_height)
-        words = line.split()
-
-        if len(words) > 1:
-            words_widths = [
-                draw.textbbox((0, 0), w, font=font_quote)[2] - draw.textbbox((0, 0), w, font=font_quote)[0]
-                for w in words
-            ]
-            total_words_w = sum(words_widths)
-            space_gap = (MAX_TEXT_WIDTH - total_words_w) / (len(words) - 1)
-
-            cur_x = float(TEXT_LEFT)
-            for w, w_w in zip(words, words_widths):
-                draw.text((round(cur_x), y), w, font=font_quote, fill=(255, 255, 255))
-                cur_x += w_w + space_gap
-        else:
-            # Single word line: draw at left edge
-            draw.text((TEXT_LEFT, y), words[0], font=font_quote, fill=(255, 255, 255))
-
-    # Render author name in bottom-right corner below the quote area
-    author_font = get_font(regular_font_path, 18, "regular")
-    author_text = f"— {author}"
-    bbox_author = draw.textbbox((0, 0), author_text, font=author_font)
-    author_w = bbox_author[2] - bbox_author[0]
-
-    author_x = TEXT_RIGHT - author_w
-    author_y = TEXT_BOTTOM + 14
-    draw.text((author_x, author_y), author_text, font=author_font, fill=(205, 215, 255))
+    # Render quote lines centered with natural spacing (matching exact original template)
+    for i, line in enumerate(lines):
+        bbox = draw.textbbox((0, 0), line, font=font_quote)
+        line_w = bbox[2] - bbox[0]
+        x = TEXT_CENTER_X - (line_w // 2)
+        draw.text((x, start_y + (i * line_height)), line, font=font_quote, fill=(255, 255, 255))
 
     img.save(output_path, quality=95)
     print(f"Generated quote image saved to '{output_path}'.")

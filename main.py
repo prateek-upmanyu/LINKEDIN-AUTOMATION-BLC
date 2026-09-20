@@ -257,16 +257,20 @@ def render_quote_image(quote, author, template_path=TEMPLATE_PATH, icon_path=PHO
         icon_l = icon_asset.resize((icon_w, icon_h), Image.Resampling.LANCZOS)
         icon_r = icon_asset.rotate(180, expand=True).resize((icon_w, icon_h), Image.Resampling.LANCZOS)
 
-        # Opening telephone quote (top-left of quote block)
-        pos_lx = first_line_lx - icon_w - 10
-        pos_ly = start_y - 8
+        # Opening telephone quote: bottom connects with vertical center of first letter (like an apostrophe/opening quote)
+        first_letter_center_y = start_y + int(selected_font_size * 0.48)
+        pos_lx = first_line_lx - icon_w - 6
+        pos_ly = first_letter_center_y - icon_h + 10
 
-        # Closing telephone quote (bottom-right of quote block)
-        pos_rx = last_line_rx + 10
-        pos_ry = start_y + (len(lines) - 1) * line_height - 4
+        # Closing telephone quote: top connects with vertical center of last letter/punctuation (like a closing quote)
+        last_line_y = start_y + (len(lines) - 1) * line_height
+        last_letter_center_y = last_line_y + int(selected_font_size * 0.48)
+        pos_rx = last_line_rx + 6
+        pos_ry = last_letter_center_y - 10
 
         img.paste(icon_l, (int(pos_lx), int(pos_ly)), icon_l)
         img.paste(icon_r, (int(pos_rx), int(pos_ry)), icon_r)
+
 
     img.convert("RGB").save(output_path, quality=95)
     print(f"Generated quote image saved to '{output_path}'.")

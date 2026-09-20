@@ -38,7 +38,7 @@ export async function GET(request: Request) {
   
   const accessToken = tokenData.access_token;
 
-  // 1. Get member profile info
+  // Get authenticated member profile info
   const userRes = await fetch('https://api.linkedin.com/v2/userinfo', {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
@@ -48,28 +48,7 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL(`/?error=user_failed`, request.url));
   }
 
-  let urn = `urn:li:person:${userData.sub}`;
-
-  // 2. Try to auto-detect Company / Organization Page where user is an Admin
-  try {
-    const orgRes = await fetch('https://api.linkedin.com/v2/organizationalEntityAcls?q=roleAssignee&state=APPROVED', {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-
-    if (orgRes.ok) {
-      const orgData = await orgRes.json();
-      if (orgData.elements && orgData.elements.length > 0) {
-        // Pick the company/organization page URN
-        const orgTarget = orgData.elements[0].organizationalTarget;
-        if (orgTarget) {
-          urn = orgTarget; // e.g., "urn:li:organization:12345678"
-          console.log(`Auto-detected LinkedIn Organization Page: ${urn}`);
-        }
-      }
-    }
-  } catch (e) {
-    console.log('Note: Could not query organizationalEntityAcls, using default member URN:', e);
-  }
+  const urn = `urn:li:person:${userData.sub}`;
 
   const githubPat = process.env.GITHUB_PAT;
   const repoOwner = process.env.GITHUB_REPO_OWNER || process.env.VERCEL_GIT_REPO_OWNER || 'Rushikeshkhadke';

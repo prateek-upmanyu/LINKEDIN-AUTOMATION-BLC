@@ -93,15 +93,17 @@ def generate_unique_quote(previous_quotes):
     import google.generativeai as genai
     genai.configure(api_key=GEMINI_API_KEY)
 
-    try:
-        model = genai.GenerativeModel("gemini-1.5-flash")
-    except Exception:
-        model = genai.GenerativeModel("gemini-pro")
+    # Candidate modern Gemini models (free tier compatible, no deprecated gemini-pro)
+    AVAILABLE_MODELS = [
+        "gemini-1.5-flash",
+        "gemini-2.0-flash",
+        "gemini-1.5-flash-8b",
+        "gemini-1.5-pro"
+    ]
 
     # Pick 2-3 random sales focus topics from the pool for maximum daily variety
     daily_focus_topics = random.sample(SALES_TOPICS_POOL, 3)
     focus_topic_str = ", ".join(daily_focus_topics)
-    suggested_author = random.choice(SALES_AUTHORITIES)
 
     recent_history = "\n".join(f"- {q}" for q in previous_quotes[-30:]) if previous_quotes else "None"
 
@@ -129,40 +131,44 @@ RETURN ONLY IN THIS EXACT 2-LINE FORMAT (NO OTHER TEXT OR MARKDOWN):
 QUOTE: [Plain quote text without quotation marks]
 AUTHOR: [Full Name of the Author]"""
 
-    for attempt in range(6):
+    last_err = None
+    for model_name in AVAILABLE_MODELS:
         try:
-            response = model.generate_content(prompt)
-            response_text = response.text.strip()
-        except Exception:
-            fallback_model = genai.GenerativeModel("gemini-pro")
-            response = fallback_model.generate_content(prompt)
-            response_text = response.text.strip()
+            print(f"Attempting quote generation with model: {model_name}...")
+            model = genai.GenerativeModel(model_name)
+            for attempt in range(3):
+                response = model.generate_content(prompt)
+                response_text = response.text.strip()
 
-        quote = ""
-        author = ""
+                quote = ""
+                author = ""
 
-        for line in response_text.split("\n"):
-            line = line.strip()
-            if line.startswith("QUOTE:"):
-                quote = line.replace("QUOTE:", "").strip().strip('"').strip("'").strip("“").strip("”")
-            elif line.startswith("AUTHOR:"):
-                author = line.replace("AUTHOR:", "").strip().lstrip("—").lstrip("-").strip()
+                for line in response_text.split("\n"):
+                    line = line.strip()
+                    if line.startswith("QUOTE:"):
+                        quote = line.replace("QUOTE:", "").strip().strip('"').strip("'").strip("“").strip("”")
+                    elif line.startswith("AUTHOR:"):
+                        author = line.replace("AUTHOR:", "").strip().lstrip("—").lstrip("-").strip()
 
-        if not quote or not author:
+                if not quote or not author:
+                    continue
+
+                # Check for duplication against entire history
+                is_duplicate = any(
+                    quote.lower() in prev.lower() or prev.lower() in quote.lower()
+                    for prev in previous_quotes
+                )
+                if not is_duplicate:
+                    print(f"Successfully generated unique quote using {model_name}!")
+                    return quote, author
+
+        except Exception as e:
+            print(f"Model {model_name} encountered error: {e}. Trying next available model...")
+            last_err = e
             continue
 
-        # Check for duplication against entire history
-        is_duplicate = any(
-            quote.lower() in prev.lower() or prev.lower() in quote.lower()
-            for prev in previous_quotes
-        )
-        if not is_duplicate:
-            return quote, author
+    raise RuntimeError(f"Failed to generate a unique sales quote from Google Gemini API. Last error: {last_err}")
 
-    if quote and author:
-        return quote, author
-
-    raise RuntimeError("Failed to generate a unique sales quote from Google Gemini API.")
 
 
 

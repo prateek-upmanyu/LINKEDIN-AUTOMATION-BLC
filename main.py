@@ -111,19 +111,68 @@ AUTHOR: [Full Name of the Author]"""
     raise RuntimeError("Failed to generate a unique quote from Google Gemini API.")
 
 
+# Bogart Font candidate filenames (place your Bogart-SemiBold.ttf or Bogart-Regular.ttf in this directory)
+BOGART_BOLD_CANDIDATES = [
+    "Bogart-SemiBold.ttf",
+    "Bogart-Bold.ttf",
+    "Bogart-Medium.ttf",
+    "Bogart-Regular.ttf",
+    "Bogart.ttf",
+    "bogart.ttf",
+    "Bogart-SemiBold.otf",
+    "Bogart-Bold.otf",
+    "Bogart-Regular.otf",
+    "Bogart.otf",
+]
+
+BOGART_REGULAR_CANDIDATES = [
+    "Bogart-Regular.ttf",
+    "Bogart-Medium.ttf",
+    "Bogart-Light.ttf",
+    "Bogart-Book.ttf",
+    "Bogart.ttf",
+    "bogart.ttf",
+    "Bogart-Regular.otf",
+    "Bogart.otf",
+]
+
+
 def get_font(font_path, font_size, default_type="bold"):
-    """Loads a truetype font with automatic fallback."""
-    if os.path.exists(font_path):
+    """
+    Loads Bogart font if available in directory or system, with clean fallback.
+    """
+    candidates = BOGART_BOLD_CANDIDATES if default_type == "bold" else BOGART_REGULAR_CANDIDATES
+
+    # 1. Check local directory for any Bogart font file
+    for cand in candidates:
+        if os.path.exists(cand):
+            try:
+                return ImageFont.truetype(cand, font_size)
+            except Exception:
+                continue
+
+    # 2. Check explicit font_path argument
+    if font_path and os.path.exists(font_path):
         try:
             return ImageFont.truetype(font_path, font_size)
         except Exception:
             pass
 
-    # Try common system fonts
+    # 3. Check Windows / Linux system fonts
     system_candidates = (
-        ["C:\\Windows\\Fonts\\arialbd.ttf", "C:\\Windows\\Fonts\\georgiab.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"]
+        [
+            "C:\\Windows\\Fonts\\georgiab.ttf",
+            "C:\\Windows\\Fonts\\arialbd.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        ]
         if default_type == "bold"
-        else ["C:\\Windows\\Fonts\\arial.ttf", "C:\\Windows\\Fonts\\georgia.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"]
+        else [
+            "C:\\Windows\\Fonts\\georgia.ttf",
+            "C:\\Windows\\Fonts\\arial.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        ]
     )
 
     for cand in system_candidates:

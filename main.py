@@ -255,12 +255,45 @@ def render_quote_image(quote, author, template_path=TEMPLATE_PATH, output_path=O
     total_text_height = len(lines) * line_height
     start_y = (TEXT_TOP + TEXT_BOTTOM) // 2 - (total_text_height // 2)
 
-    # Render centered quote lines (clean crisp white)
-    for i, line in enumerate(lines):
-        bbox = draw.textbbox((0, 0), line, font=font_quote)
-        line_w = bbox[2] - bbox[0]
-        x = TEXT_CENTER_X - (line_w // 2)
-        draw.text((x, start_y + (i * line_height)), line, font=font_quote, fill=(255, 255, 255))
+    # Render Fully Justified quote lines (Microsoft Word Ctrl+J style)
+    for line_idx, line in enumerate(lines):
+        y = start_y + (line_idx * line_height)
+        words = line.split()
+        is_last_line = (line_idx == len(lines) - 1)
+
+        if len(words) <= 1 or is_last_line:
+            # Last line or single-word line: natural left alignment
+            cur_x = float(TEXT_LEFT)
+            space_box = draw.textbbox((0, 0), " ", font=font_quote)
+            space_w = space_box[2] - space_box[0]
+            for word in words:
+                draw.text((round(cur_x), y), word, font=font_quote, fill=(255, 255, 255))
+                w_box = draw.textbbox((0, 0), word, font=font_quote)
+                cur_x += (w_box[2] - w_box[0]) + space_w
+        else:
+            # Full Justification: evenly distribute spacing so line touches both TEXT_LEFT and TEXT_RIGHT
+            words_widths = [
+                draw.textbbox((0, 0), w, font=font_quote)[2] - draw.textbbox((0, 0), w, font=font_quote)[0]
+                for w in words
+            ]
+            total_words_w = sum(words_widths)
+            total_space_needed = MAX_TEXT_WIDTH - total_words_w
+            space_gap = total_space_needed / (len(words) - 1)
+
+            # Cap excessive gap spacing for safety
+            space_box = draw.textbbox((0, 0), " ", font=font_quote)
+            standard_space = space_box[2] - space_box[0]
+            if space_gap > standard_space * 3.5:
+                # If gap is unnaturally wide, fallback to standard spacing
+                cur_x = float(TEXT_LEFT)
+                for word, w_w in zip(words, words_widths):
+                    draw.text((round(cur_x), y), word, font=font_quote, fill=(255, 255, 255))
+                    cur_x += w_w + standard_space
+            else:
+                cur_x = float(TEXT_LEFT)
+                for word, w_w in zip(words, words_widths):
+                    draw.text((round(cur_x), y), word, font=font_quote, fill=(255, 255, 255))
+                    cur_x += w_w + space_gap
 
     # Render author name in bottom-right corner below the quote area
     author_font = get_font(regular_font_path, 18, "regular")

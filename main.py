@@ -115,11 +115,12 @@ REPRESENTATIVE AUTHORITIES (or similar renowned sales/business minds):
 Brian Tracy, Jeffrey Gitomer, Zig Ziglar, Dale Carnegie, Jeb Blount, Jill Konrath, Chris Voss, Robert Cialdini, Grant Cardone, Neil Rackham, Chet Holmes, Mark Cuban, Jordan Belfort, David Sandler, Steve Jobs, Gary Vaynerchuk, Napoleon Hill.
 
 STRICT CONTENT RULES:
-1. The quote MUST be exclusively related to SALES (e.g. cold outreach, prospecting, closing, handling objections, negotiation, follow-up, pricing, buyer psychology, discipline, resilience, or closing deals).
-2. It MUST be a real, verified quote attributed to a well-known authority.
+1. The quote MUST be a 100% REAL, AUTHENTIC, HISTORICALLY DOCUMENTED quote actually spoken or published by a real person (sales leader, entrepreneur, psychologist, or author). NEVER invent, synthesize, or hallucinate a quote.
+2. The quote MUST be exclusively related to SALES (e.g. cold outreach, prospecting, closing, handling objections, negotiation, follow-up, pricing, buyer psychology, discipline, resilience, or closing deals).
 3. Keep the quote punchy and impactful (between 8 to 24 words).
 4. Do NOT use generic motivational quotes (it must be directly relevant to sales professionals, closers, and entrepreneurs).
 5. Do NOT include quotation marks around the quote.
+6. The AUTHOR must be the actual real full name of the person who said it.
 
 DO NOT REPEAT ANY OF THESE PREVIOUSLY POSTED QUOTES:
 {recent_history}

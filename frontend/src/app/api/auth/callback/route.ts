@@ -38,21 +38,40 @@ export async function GET(request: Request) {
   
   const accessToken = tokenData.access_token;
 
-  // Get authenticated member profile info
-  const userRes = await fetch('https://api.linkedin.com/v2/userinfo', {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
+  // Determine whether to post as Organization (Business Page) or Personal Profile
+  let authorUrn = '';
 
-  const userData = await userRes.json();
-  if (!userRes.ok) {
-    return NextResponse.redirect(new URL(`/?error=user_failed`, request.url));
+  const configuredOrgId = process.env.LINKEDIN_ORGANIZATION_ID;
+  if (configuredOrgId) {
+    const cleanOrgId = configuredOrgId.replace(/[^0-9]/g, '');
+    authorUrn = `urn:li:organization:${cleanOrgId}`;
+  } else {
+    // Try to auto-detect administered organization
+    try {
+      const orgRes = await fetch('https://api.linkedin.com/v2/organizationAcls?q=roleAssignee', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (orgRes.ok) {
+        const orgData = await orgRes.json();
+        const orgElement = orgData?.elements?.find((el: any) => el?.state === 'APPROVED' && el?.organization);
+        if (orgElement?.organization) {
+          authorUrn = orgElement.organization;
+        }
+      }
+    } catch (e) {
+      console.warn('Could not auto-fetch organization ACLs:', e);
+    }
   }
 
-  const urn = `urn:li:person:${userData.sub}`;
+  // Fallback to personal profile if no organization found
+  if (!authorUrn) {
+    authorUrn = `urn:li:person:${userData.sub}`;
+  }
 
   const githubPat = process.env.GITHUB_PAT;
   const repoOwner = process.env.GITHUB_REPO_OWNER || process.env.VERCEL_GIT_REPO_OWNER || 'Rushikeshkhadke';
   const repoName = process.env.GITHUB_REPO_NAME || process.env.VERCEL_GIT_REPO_SLUG || 'linkedin-quote-automation';
+
 
   if (!githubPat) {
     return NextResponse.redirect(new URL(`/?error=github_setup_missing`, request.url));
@@ -62,10 +81,11 @@ export async function GET(request: Request) {
     const { key_id, key } = await getRepoPublicKey(repoOwner, repoName, githubPat);
     
     const encryptedToken = await encryptSecret(accessToken, key);
-    const encryptedUrn = await encryptSecret(urn, key);
+    const encryptedUrn = await encryptSecret(authorUrn, key);
 
     await putRepoSecret(repoOwner, repoName, 'LINKEDIN_ACCESS_TOKEN', encryptedToken, key_id, githubPat);
     await putRepoSecret(repoOwner, repoName, 'LINKEDIN_AUTHOR_URN', encryptedUrn, key_id, githubPat);
+
 
     return NextResponse.redirect(new URL(`/?success=true`, request.url));
   } catch (err) {

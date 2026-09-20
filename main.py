@@ -251,20 +251,23 @@ def render_quote_image(quote, author, template_path=TEMPLATE_PATH, icon_path=PHO
         draw.text((x, start_y + (i * line_height)), line, font=font_quote, fill=(255, 255, 255))
 
     # Add Telephone Quotation Marks ("")
+    last_line_y = start_y + (len(lines) - 1) * line_height
+    last_letter_center_y = last_line_y + int(selected_font_size * 0.48)
+    pos_rx = last_line_rx + 6
+    pos_ry = last_letter_center_y
+
     if os.path.exists(icon_path):
         icon_asset = Image.open(icon_path).convert("RGBA")
         icon_w, icon_h = 56, 59
         icon_l = icon_asset.resize((icon_w, icon_h), Image.Resampling.LANCZOS)
         icon_r = icon_asset.rotate(180, expand=True).resize((icon_w, icon_h), Image.Resampling.LANCZOS)
 
-        # Opening telephone quote: bottom connects with vertical center of first letter (like an apostrophe/opening quote)
+        # Opening telephone quote: bottom connects with vertical center of first letter
         first_letter_center_y = start_y + int(selected_font_size * 0.48)
         pos_lx = first_line_lx - icon_w - 6
         pos_ly = first_letter_center_y - icon_h + 10
 
-        # Closing telephone quote: top connects with vertical center of last letter/punctuation (like a closing quote)
-        last_line_y = start_y + (len(lines) - 1) * line_height
-        last_letter_center_y = last_line_y + int(selected_font_size * 0.48)
+        # Closing telephone quote: top connects with vertical center of last letter/punctuation
         pos_rx = last_line_rx + 6
         pos_ry = last_letter_center_y
 
@@ -272,10 +275,32 @@ def render_quote_image(quote, author, template_path=TEMPLATE_PATH, icon_path=PHO
         img.paste(icon_r, (int(pos_rx), int(pos_ry)), icon_r)
 
 
+    # Render Author Name below the quote block
+    if author:
+        reg_font_path = "Bogart-Regular.ttf"
+        if not os.path.exists(reg_font_path):
+            reg_font_path = "Bogart-Medium.ttf"
+
+        clean_author = author.strip().lstrip("—").lstrip("-").strip()
+        author_text = f"— {clean_author}"
+        author_font_size = max(18, int(selected_font_size * 0.72))
+        author_font = get_font(reg_font_path, author_font_size, "regular")
+
+        abbox = draw.textbbox((0, 0), author_text, font=author_font)
+        aw = abbox[2] - abbox[0]
+
+        quote_bottom = max(start_y + total_text_height, pos_ry + 59)
+        author_y = quote_bottom + 14
+        # Align author with the right edge of the closing quote mark / quote block
+        author_x = max(pos_rx + 56 - aw, TEXT_CENTER_X - (aw // 2))
+
+        # Render author with clean elegant light tint for visual hierarchy
+        draw.text((author_x, author_y), author_text, font=author_font, fill=(225, 230, 255))
 
     img.convert("RGB").save(output_path, quality=95)
     print(f"Generated quote image saved to '{output_path}'.")
     return output_path
+
 
 
 

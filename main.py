@@ -18,15 +18,17 @@ TEMPLATE_PATH = "template.png"
 OUTPUT_IMAGE_PATH = "quote_output.png"
 HISTORY_FILE = "history.txt"
 
-# Bounding box for quote text area (between opening and closing telephone quote marks)
+# Bounding box for quote text area — derived from PPTX TextBox 2 ({{QUOTE}}) coordinates
+# PPTX TextBox pos: (1.823", 4.583"), size: (4.062" x 1.646") @ 96 dpi → 737x1024 image
 # Template image size: 737 x 1024 px
-TEXT_LEFT = 170                              # Starts directly after the top-left telephone quote icon
-TEXT_RIGHT = 570                             # Ends directly before the bottom-right telephone quote icon
-TEXT_TOP = 440
-TEXT_BOTTOM = 595
-TEXT_CENTER_X = (TEXT_LEFT + TEXT_RIGHT) // 2
-MAX_TEXT_WIDTH = TEXT_RIGHT - TEXT_LEFT      # 400 px
-MAX_TEXT_HEIGHT = TEXT_BOTTOM - TEXT_TOP     # 155 px
+TEXT_LEFT = 175
+TEXT_RIGHT = 564
+TEXT_TOP = 439
+TEXT_BOTTOM = 597
+TEXT_CENTER_X = (TEXT_LEFT + TEXT_RIGHT) // 2   # = 369
+TEXT_CENTER_Y = (TEXT_TOP + TEXT_BOTTOM) // 2   # = 518
+MAX_TEXT_WIDTH = TEXT_RIGHT - TEXT_LEFT          # 389 px
+MAX_TEXT_HEIGHT = TEXT_BOTTOM - TEXT_TOP         # 158 px
 
 
 def get_previous_quotes(history_path=HISTORY_FILE):
@@ -231,7 +233,7 @@ def render_quote_image(quote, author, template_path=TEMPLATE_PATH, output_path=O
 
     line_height = int(selected_font_size * 1.40)
     total_text_height = len(lines) * line_height
-    start_y = (TEXT_TOP + TEXT_BOTTOM) // 2 - (total_text_height // 2)
+    start_y = TEXT_CENTER_Y - (total_text_height // 2)
 
     # Render quote lines centered with natural spacing (matching exact original template)
     for i, line in enumerate(lines):

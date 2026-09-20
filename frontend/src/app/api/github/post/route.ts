@@ -3,7 +3,8 @@ import { NextResponse } from 'next/server';
 export async function POST(request: Request) {
   try {
     const githubPat = process.env.GITHUB_PAT;
-    const repoOwner = process.env.GITHUB_REPO_OWNER || process.env.VERCEL_GIT_REPO_OWNER || 'Rushikeshkhadke';
+    const repoOwner = process.env.GITHUB_REPO_OWNER || process.env.VERCEL_GIT_REPO_OWNER || 'prateek-upmanyu';
+    const repoName = process.env.GITHUB_REPO_NAME || process.env.VERCEL_GIT_REPO_SLUG || 'LINKEDIN-AUTOMATION-BLC';
     const workflowId = 'daily_post.yml';
 
     if (!githubPat) {

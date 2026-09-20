@@ -65,7 +65,19 @@ export async function GET(request: Request) {
 
   // Fallback to personal profile if no organization found
   if (!authorUrn) {
-    authorUrn = `urn:li:person:${userData.sub}`;
+    try {
+      const userRes = await fetch('https://api.linkedin.com/v2/userinfo', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (userRes.ok) {
+        const userData = await userRes.json();
+        if (userData?.sub) {
+          authorUrn = `urn:li:person:${userData.sub}`;
+        }
+      }
+    } catch (e) {
+      console.warn('Could not fetch userinfo:', e);
+    }
   }
 
   const githubPat = process.env.GITHUB_PAT;

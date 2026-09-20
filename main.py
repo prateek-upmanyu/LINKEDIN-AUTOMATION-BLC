@@ -40,10 +40,52 @@ def get_previous_quotes(history_path=HISTORY_FILE):
 
 
 
+import random
+
+# Curated Sales Topics & Themes Pool (Exclusively Sales, Cold Calling, Pipeline, Negotiation & Sales Psychology)
+SALES_TOPICS_POOL = [
+    # Core Sales Pipeline & Tactical Execution
+    "Prospecting & Cold Outreach", "Lead Qualification & Discovery", "High-Impact Pitching", 
+    "Objection Handling & Reframing", "Closing Deals & ABC (Always Be Closing)", 
+    "Relentless Follow-Up", "Handling Rejection & Resilience", "Sales Pipeline & Forecasting", 
+    "Creating Urgency without Pressure", "Gatekeepers & Reaching Decision Makers", 
+    "Deal Velocity & Shortening Sales Cycles", "Sales Demos & Compelling Proposals", 
+    "Negotiating Pricing, Contracts & Avoiding Discounts", "Quota Attainment & Commission Drive",
+    
+    # Methodologies & Customer Journey
+    "Value Selling & ROI Focus", "Consultative & Solution Selling", "Relationship & Trust-Based Selling", 
+    "Social Selling & Inbound Authority", "Warm Calling & Smart Prospecting", "Generating High-Value Referrals", 
+    "Upselling, Cross-Selling & Account Expansion", "Customer Retention, Success & Combating Churn",
+    
+    # Sales Psychology & Influence Triggers
+    "Influence & Behavioral Economics in Sales", "Ethical Persuasion vs Manipulation", 
+    "The Power of Scarcity & Reciprocity", "Authority & Unshakable Authenticity", 
+    "Mastering Silence & Strategic Timing", "Intuition, Adaptability & Curiosity in Discovery", 
+    "Empathy, Active Listening & Reading Body Language", "Framing, Anchoring & Contrast Effect in Negotiations", 
+    "Understanding Buyer Identity, Ego, Fear & Desire", "Detachment from the Outcome & Flow State in Sales Calls", 
+    "Power Dynamics, Status & Building Instant Rapport", "Cognitive Biases & How Buyers Make Decisions", 
+    "High-Stakes Negotiation & Hostage Negotiator Tactics", "Storytelling That Closes Deals",
+    
+    # Top Performer Mindset & Execution
+    "Sales Discipline, Obsession & Relentless Execution", "Self-Awareness & Emotional Intelligence under Pressure", 
+    "Rejection = Redirection & Mental Toughness", "Consistency, Daily Hustle & Work Ethic", 
+    "Growth Mindset, Ownership & Extreme Accountability", "Confidence, Energy & Presence on the Phone", 
+    "Personal Branding & Reputation in the Industry", "Top 1% Sales Performer Habits & Routine"
+]
+
+SALES_AUTHORITIES = [
+    "Brian Tracy", "Jeffrey Gitomer", "Zig Ziglar", "Dale Carnegie", "Jeb Blount", 
+    "Jill Konrath", "Chris Voss", "Robert Cialdini", "Grant Cardone", "Neil Rackham", 
+    "Chet Holmes", "Mark Cuban", "Jordan Belfort", "David Sandler", "Gary Vaynerchuk", 
+    "Steve Jobs", "Napoleon Hill", "Tom Hopkins", "Anthony Iannarino", "Art Sobczak"
+]
+
+
 def generate_unique_quote(previous_quotes):
     """
-    Uses Google Gemini API (Free Tier) to generate a verified quote from a renowned sales/business leader.
-    Ensures quote is not a duplicate from history.
+    Uses Google Gemini API (Free Tier) to generate a verified quote strictly related to SALES
+    rotating across specific sales topics and business authorities.
+    Ensures quote is 100% unique and not a duplicate from history.
     """
     if not GEMINI_API_KEY:
         raise ValueError("GEMINI_API_KEY environment variable is missing.")
@@ -51,32 +93,46 @@ def generate_unique_quote(previous_quotes):
     import google.generativeai as genai
     genai.configure(api_key=GEMINI_API_KEY)
 
-    # Use gemini-1.5-flash or gemini-2.0-flash (fast, reliable, generous free tier)
     try:
         model = genai.GenerativeModel("gemini-1.5-flash")
     except Exception:
         model = genai.GenerativeModel("gemini-pro")
 
-    recent_history = "\n".join(previous_quotes[-20:]) if previous_quotes else "None"
+    # Pick 2-3 random sales focus topics from the pool for maximum daily variety
+    daily_focus_topics = random.sample(SALES_TOPICS_POOL, 3)
+    focus_topic_str = ", ".join(daily_focus_topics)
+    suggested_author = random.choice(SALES_AUTHORITIES)
 
-    prompt = f"""You are a sales & leadership content curator for Bulk Leads Caller brand.
-Find a real, verified, inspiring quote from a well-known sales, business, or leadership authority (such as Brian Tracy, Jeffrey Gitomer, Zig Ziglar, Gary Vaynerchuk, Grant Cardone, Steve Jobs, Warren Buffett, Napoleon Hill, Dale Carnegie, or Mark Cuban) specifically related to sales, cold calling, lead generation, closing deals, resilience, or business growth.
+    recent_history = "\n".join(f"- {q}" for q in previous_quotes[-30:]) if previous_quotes else "None"
 
-Do NOT repeat any of these recent quotes:
+    prompt = f"""You are an elite sales leadership content curator for Bulk Leads Caller (a B2B sales & cold calling agency).
+Your task is to find a real, verified, highly inspiring and actionable quote from a well-known sales leader, master negotiator, business authority, or psychological influence expert.
+
+TODAY'S SALES FOCUS THEMES:
+{focus_topic_str}
+
+REPRESENTATIVE AUTHORITIES (or similar renowned sales/business minds):
+Brian Tracy, Jeffrey Gitomer, Zig Ziglar, Dale Carnegie, Jeb Blount, Jill Konrath, Chris Voss, Robert Cialdini, Grant Cardone, Neil Rackham, Chet Holmes, Mark Cuban, Jordan Belfort, David Sandler, Steve Jobs, Gary Vaynerchuk, Napoleon Hill.
+
+STRICT CONTENT RULES:
+1. The quote MUST be exclusively related to SALES (e.g. cold outreach, prospecting, closing, handling objections, negotiation, follow-up, pricing, buyer psychology, discipline, resilience, or closing deals).
+2. It MUST be a real, verified quote attributed to a well-known authority.
+3. Keep the quote punchy and impactful (between 8 to 24 words).
+4. Do NOT use generic motivational quotes (it must be directly relevant to sales professionals, closers, and entrepreneurs).
+5. Do NOT include quotation marks around the quote.
+
+DO NOT REPEAT ANY OF THESE PREVIOUSLY POSTED QUOTES:
 {recent_history}
 
-Rules:
-1. Do NOT include quotation marks around the quote.
-2. The quote should be impactful and concise (between 10 to 25 words).
-3. Return ONLY in this exact 2-line format with no other text or markdown:
+RETURN ONLY IN THIS EXACT 2-LINE FORMAT (NO OTHER TEXT OR MARKDOWN):
 QUOTE: [Plain quote text without quotation marks]
 AUTHOR: [Full Name of the Author]"""
 
-    for attempt in range(5):
+    for attempt in range(6):
         try:
             response = model.generate_content(prompt)
             response_text = response.text.strip()
-        except Exception as e:
+        except Exception:
             fallback_model = genai.GenerativeModel("gemini-pro")
             response = fallback_model.generate_content(prompt)
             response_text = response.text.strip()
@@ -89,12 +145,12 @@ AUTHOR: [Full Name of the Author]"""
             if line.startswith("QUOTE:"):
                 quote = line.replace("QUOTE:", "").strip().strip('"').strip("'").strip("“").strip("”")
             elif line.startswith("AUTHOR:"):
-                author = line.replace("AUTHOR:", "").strip()
+                author = line.replace("AUTHOR:", "").strip().lstrip("—").lstrip("-").strip()
 
         if not quote or not author:
             continue
 
-        # Check for duplication
+        # Check for duplication against entire history
         is_duplicate = any(
             quote.lower() in prev.lower() or prev.lower() in quote.lower()
             for prev in previous_quotes
@@ -105,7 +161,8 @@ AUTHOR: [Full Name of the Author]"""
     if quote and author:
         return quote, author
 
-    raise RuntimeError("Failed to generate a unique quote from Google Gemini API.")
+    raise RuntimeError("Failed to generate a unique sales quote from Google Gemini API.")
+
 
 
 # Bogart Font candidate filenames (place your Bogart-SemiBold.ttf or Bogart-Regular.ttf in this directory)

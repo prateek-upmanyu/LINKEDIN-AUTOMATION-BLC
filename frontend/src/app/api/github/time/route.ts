@@ -27,8 +27,7 @@ export async function POST(request: Request) {
 
     const githubPat = process.env.GITHUB_PAT;
     const repoOwner = process.env.GITHUB_REPO_OWNER || process.env.VERCEL_GIT_REPO_OWNER || 'Rushikeshkhadke';
-    const repoName = process.env.GITHUB_REPO_NAME || process.env.VERCEL_GIT_REPO_SLUG || 'linkedin-quote-automation';
-    const path = '.github/workflows/publish_quote.yml';
+    const path = '.github/workflows/daily_post.yml';
 
     if (!githubPat) {
       return NextResponse.json({ error: 'GITHUB_PAT missing' }, { status: 500 });

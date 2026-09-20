@@ -15,20 +15,15 @@ LINKEDIN_ACCESS_TOKEN = os.environ.get("LINKEDIN_ACCESS_TOKEN")
 LINKEDIN_AUTHOR_URN = os.environ.get("LINKEDIN_AUTHOR_URN")
 
 TEMPLATE_PATH = "template.png"
+PHONE_ICON_PATH = "phone_quote_icon.png"
 OUTPUT_IMAGE_PATH = "quote_output.png"
 HISTORY_FILE = "history.txt"
 
-# Bounding box for quote text area — derived from PPTX TextBox 2 ({{QUOTE}}) coordinates
-# PPTX TextBox pos: (1.823", 4.583"), size: (4.062" x 1.646") @ 96 dpi → 737x1024 image
-# Template image size: 737 x 1024 px
-TEXT_LEFT = 175
-TEXT_RIGHT = 564
-TEXT_TOP = 439
-TEXT_BOTTOM = 597
-TEXT_CENTER_X = (TEXT_LEFT + TEXT_RIGHT) // 2   # = 369
-TEXT_CENTER_Y = (TEXT_TOP + TEXT_BOTTOM) // 2   # = 518
-MAX_TEXT_WIDTH = TEXT_RIGHT - TEXT_LEFT          # 389 px
-MAX_TEXT_HEIGHT = TEXT_BOTTOM - TEXT_TOP         # 158 px
+# Bounding box limits for quote text area
+MAX_TEXT_WIDTH = 400
+MAX_TEXT_HEIGHT = 160
+TEXT_CENTER_X = 369
+TEXT_CENTER_Y = 505
 
 
 def get_previous_quotes(history_path=HISTORY_FILE):
@@ -42,6 +37,7 @@ def get_previous_quotes(history_path=HISTORY_FILE):
             if len(parts) >= 2:
                 quotes.append(parts[1])
     return quotes
+
 
 
 def generate_unique_quote(previous_quotes):
@@ -186,41 +182,45 @@ def get_font(font_path, font_size, default_type="bold"):
     return ImageFont.load_default()
 
 
-def render_quote_image(quote, author, template_path=TEMPLATE_PATH, output_path=OUTPUT_IMAGE_PATH):
+def render_quote_image(quote, author, template_path=TEMPLATE_PATH, icon_path=PHONE_ICON_PATH, output_path=OUTPUT_IMAGE_PATH):
     """
-    Replaces ONLY the quote text on template.png using Pillow.
+    Renders quote text onto the clean template with dynamic telephone quotation marks ("").
     - Uses official Bogart font.
-    - Natural word spacing (no artificial gaps or stretching).
-    - Centered horizontally (CENTER_X = 369) and vertically between the telephone quote icons.
+    - Centers text horizontally and vertically.
+    - Dynamically attaches the opening telephone quote mark on the top-left (first line).
+    - Dynamically attaches the closing telephone quote mark (rotated 180°) on the bottom-right (last line).
     - Preserves 100% of the original background, watermark, hanging phones, and logo.
     """
     if not os.path.exists(template_path):
         raise FileNotFoundError(f"Template image '{template_path}' not found.")
 
-    bold_font_path = "Bogart-Medium.ttf"
+    bold_font_path = "Bogart-SemiBold.ttf"
     if not os.path.exists(bold_font_path):
-        bold_font_path = "Bogart-SemiBold.ttf"
+        bold_font_path = "Bogart-Medium.ttf"
 
-    img = Image.open(template_path).convert("RGB")
+    img = Image.open(template_path).convert("RGBA")
     draw = ImageDraw.Draw(img)
 
     # Dynamic Font Sizing & Clean Multi-line Wrapping
-    selected_font_size = 28
+    selected_font_size = 27
     lines = []
     font_quote = None
 
-    for f_size in range(30, 18, -1):
+    for f_size in range(28, 19, -1):
         font_q = get_font(bold_font_path, f_size, "bold")
-        line_height = int(f_size * 1.40)
+        line_height = int(f_size * 1.42)
 
-        for wrap_w in range(35, 14, -1):
+        for wrap_w in range(35, 20, -1):
             cand_lines = textwrap.wrap(quote, width=wrap_w)
+            if not cand_lines:
+                continue
             if len(cand_lines) * line_height <= MAX_TEXT_HEIGHT:
-                if all(
-                    (draw.textbbox((0, 0), ln, font=font_q)[2] - draw.textbbox((0, 0), ln, font=font_q)[0]) <= MAX_TEXT_WIDTH
+                widths = [
+                    (draw.textbbox((0, 0), ln, font=font_q)[2] - draw.textbbox((0, 0), ln, font=font_q)[0])
                     for ln in cand_lines
-                ):
-                    selected_font_size = f_size
+                ]
+                if max(widths) <= MAX_TEXT_WIDTH and len(cand_lines) <= 4:
+                    selected_size = f_size
                     lines = cand_lines
                     font_quote = font_q
                     break
@@ -231,20 +231,47 @@ def render_quote_image(quote, author, template_path=TEMPLATE_PATH, output_path=O
         font_quote = get_font(bold_font_path, 22, "bold")
         lines = textwrap.wrap(quote, width=28)
 
-    line_height = int(selected_font_size * 1.40)
+    line_height = int(selected_font_size * 1.42)
     total_text_height = len(lines) * line_height
     start_y = TEXT_CENTER_Y - (total_text_height // 2)
 
-    # Render quote lines centered with natural spacing (matching exact original template)
+    first_line_lx = 0
+    last_line_rx = 0
+
+    # Render quote lines centered
     for i, line in enumerate(lines):
         bbox = draw.textbbox((0, 0), line, font=font_quote)
         line_w = bbox[2] - bbox[0]
         x = TEXT_CENTER_X - (line_w // 2)
+        rx = x + line_w
+        if i == 0:
+            first_line_lx = x
+        if i == len(lines) - 1:
+            last_line_rx = rx
         draw.text((x, start_y + (i * line_height)), line, font=font_quote, fill=(255, 255, 255))
 
-    img.save(output_path, quality=95)
+    # Add Telephone Quotation Marks ("")
+    if os.path.exists(icon_path):
+        icon_asset = Image.open(icon_path).convert("RGBA")
+        icon_w, icon_h = 56, 59
+        icon_l = icon_asset.resize((icon_w, icon_h), Image.Resampling.LANCZOS)
+        icon_r = icon_asset.rotate(180, expand=True).resize((icon_w, icon_h), Image.Resampling.LANCZOS)
+
+        # Opening telephone quote (top-left of quote block)
+        pos_lx = first_line_lx - icon_w - 10
+        pos_ly = start_y - 8
+
+        # Closing telephone quote (bottom-right of quote block)
+        pos_rx = last_line_rx + 10
+        pos_ry = start_y + (len(lines) - 1) * line_height - 4
+
+        img.paste(icon_l, (int(pos_lx), int(pos_ly)), icon_l)
+        img.paste(icon_r, (int(pos_rx), int(pos_ry)), icon_r)
+
+    img.convert("RGB").save(output_path, quality=95)
     print(f"Generated quote image saved to '{output_path}'.")
     return output_path
+
 
 
 def upload_image_to_linkedin(image_path):

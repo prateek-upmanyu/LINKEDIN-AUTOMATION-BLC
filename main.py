@@ -20,13 +20,13 @@ HISTORY_FILE = "history.txt"
 
 # Bounding box for quote text area (between opening and closing telephone quote marks)
 # Template image size: 737 x 1024 px
-TEXT_LEFT = 175
-TEXT_RIGHT = 565
-TEXT_TOP = 438
-TEXT_BOTTOM = 598
+TEXT_LEFT = 170                              # Starts directly after the top-left telephone quote icon
+TEXT_RIGHT = 570                             # Ends directly before the bottom-right telephone quote icon
+TEXT_TOP = 440
+TEXT_BOTTOM = 595
 TEXT_CENTER_X = (TEXT_LEFT + TEXT_RIGHT) // 2
-MAX_TEXT_WIDTH = TEXT_RIGHT - TEXT_LEFT      # 390 px
-MAX_TEXT_HEIGHT = TEXT_BOTTOM - TEXT_TOP     # 160 px
+MAX_TEXT_WIDTH = TEXT_RIGHT - TEXT_LEFT      # 400 px
+MAX_TEXT_HEIGHT = TEXT_BOTTOM - TEXT_TOP     # 155 px
 
 
 def get_previous_quotes(history_path=HISTORY_FILE):
@@ -79,7 +79,6 @@ AUTHOR: [Full Name of the Author]"""
             response = model.generate_content(prompt)
             response_text = response.text.strip()
         except Exception as e:
-            # Fallback to gemini-pro if flash is unavailable
             fallback_model = genai.GenerativeModel("gemini-pro")
             response = fallback_model.generate_content(prompt)
             response_text = response.text.strip()
@@ -188,112 +187,72 @@ def get_font(font_path, font_size, default_type="bold"):
 def render_quote_image(quote, author, template_path=TEMPLATE_PATH, output_path=OUTPUT_IMAGE_PATH):
     """
     Renders quote and author name on template.png using Pillow.
-    - Quote is centered in the designated text area.
-    - No quotation marks added (telephones are baked into the template).
-    - Author placed in bottom-right corner below the quote area.
+    - Full Justification (Block D): Every line spans flush from TEXT_LEFT to TEXT_RIGHT.
+    - Opening telephone quotation icon frames top-left; closing telephone quotation icon frames bottom-right.
+    - No literal quotation marks added to text.
+    - Author placed in bottom-right corner below the quote block.
     """
     if not os.path.exists(template_path):
         raise FileNotFoundError(f"Template image '{template_path}' not found.")
 
-    bold_font_path = "Roboto-Bold.ttf"
-    regular_font_path = "Roboto-Regular.ttf"
-
-    if not os.path.exists(bold_font_path):
-        try:
-            urllib.request.urlretrieve(
-                "https://github.com/googlefonts/roboto/raw/main/src/hinted/Roboto-Bold.ttf",
-                bold_font_path,
-            )
-        except Exception as e:
-            print(f"Note: Could not download Roboto-Bold ({e}), using system font fallback.")
-
-    if not os.path.exists(regular_font_path):
-        try:
-            urllib.request.urlretrieve(
-                "https://github.com/googlefonts/roboto/raw/main/src/hinted/Roboto-Regular.ttf",
-                regular_font_path,
-            )
-        except Exception as e:
-            print(f"Note: Could not download Roboto-Regular ({e}), using system font fallback.")
+    bold_font_path = "Bogart-SemiBold.ttf"
+    regular_font_path = "Bogart-Regular.ttf"
 
     img = Image.open(template_path).convert("RGB")
     draw = ImageDraw.Draw(img)
 
-    # Dynamic Font Sizing & Multi-line Wrapping
-    selected_font_size = 32
+    # Dynamic Font Sizing & Balanced Line Wrapping
+    selected_font_size = 28
     lines = []
     font_quote = None
 
-    for f_size in range(34, 16, -1):
+    for f_size in range(32, 18, -1):
         font_q = get_font(bold_font_path, f_size, "bold")
-        line_height = int(f_size * 1.35)
+        line_height = int(f_size * 1.42)
 
-        best_wrap = 36
-        for wrap_w in range(36, 10, -1):
-            wrapped_test = textwrap.wrap(quote, width=wrap_w)
-            if all(
-                (draw.textbbox((0, 0), ln, font=font_q)[2] - draw.textbbox((0, 0), ln, font=font_q)[0]) <= MAX_TEXT_WIDTH
-                for ln in wrapped_test
-            ):
-                best_wrap = wrap_w
-                break
-
-        test_lines = textwrap.wrap(quote, width=best_wrap)
-        total_height = len(test_lines) * line_height
-
-        if total_height <= MAX_TEXT_HEIGHT:
-            selected_font_size = f_size
-            lines = test_lines
-            font_quote = font_q
+        for wrap_w in range(36, 12, -1):
+            cand_lines = textwrap.wrap(quote, width=wrap_w)
+            if len(cand_lines) * line_height <= MAX_TEXT_HEIGHT:
+                if all(
+                    (draw.textbbox((0, 0), ln, font=font_q)[2] - draw.textbbox((0, 0), ln, font=font_q)[0]) <= MAX_TEXT_WIDTH
+                    for ln in cand_lines
+                ):
+                    selected_font_size = f_size
+                    lines = cand_lines
+                    font_quote = font_q
+                    break
+        if lines:
             break
 
     if not font_quote:
-        font_quote = get_font(bold_font_path, 20, "bold")
+        font_quote = get_font(bold_font_path, 22, "bold")
         lines = textwrap.wrap(quote, width=28)
 
-    line_height = int(selected_font_size * 1.35)
+    line_height = int(selected_font_size * 1.42)
     total_text_height = len(lines) * line_height
     start_y = (TEXT_TOP + TEXT_BOTTOM) // 2 - (total_text_height // 2)
 
-    # Render Fully Justified quote lines (Microsoft Word Ctrl+J style)
+    # True Justified Alignment (Block D):
+    # Distribute word spacing so both left and right edges are perfectly flush vertical lines
     for line_idx, line in enumerate(lines):
         y = start_y + (line_idx * line_height)
         words = line.split()
-        is_last_line = (line_idx == len(lines) - 1)
 
-        if len(words) <= 1 or is_last_line:
-            # Last line or single-word line: natural left alignment
-            cur_x = float(TEXT_LEFT)
-            space_box = draw.textbbox((0, 0), " ", font=font_quote)
-            space_w = space_box[2] - space_box[0]
-            for word in words:
-                draw.text((round(cur_x), y), word, font=font_quote, fill=(255, 255, 255))
-                w_box = draw.textbbox((0, 0), word, font=font_quote)
-                cur_x += (w_box[2] - w_box[0]) + space_w
-        else:
-            # Full Justification: evenly distribute spacing so line touches both TEXT_LEFT and TEXT_RIGHT
+        if len(words) > 1:
             words_widths = [
                 draw.textbbox((0, 0), w, font=font_quote)[2] - draw.textbbox((0, 0), w, font=font_quote)[0]
                 for w in words
             ]
             total_words_w = sum(words_widths)
-            total_space_needed = MAX_TEXT_WIDTH - total_words_w
-            space_gap = total_space_needed / (len(words) - 1)
+            space_gap = (MAX_TEXT_WIDTH - total_words_w) / (len(words) - 1)
 
-            # Cap excessive gap spacing for safety
-            space_box = draw.textbbox((0, 0), " ", font=font_quote)
-            standard_space = space_box[2] - space_box[0]
-            if space_gap > standard_space * 3.5:
-                # If gap is unnaturally wide, fallback to standard spacing
-                cur_x = float(TEXT_LEFT)
-                for word, w_w in zip(words, words_widths):
-                    draw.text((round(cur_x), y), word, font=font_quote, fill=(255, 255, 255))
-                    cur_x += w_w + standard_space
-            else:
-                cur_x = float(TEXT_LEFT)
-                for word, w_w in zip(words, words_widths):
-                    draw.text((round(cur_x), y), word, font=font_quote, fill=(255, 255, 255))
-                    cur_x += w_w + space_gap
+            cur_x = float(TEXT_LEFT)
+            for w, w_w in zip(words, words_widths):
+                draw.text((round(cur_x), y), w, font=font_quote, fill=(255, 255, 255))
+                cur_x += w_w + space_gap
+        else:
+            # Single word line: draw at left edge
+            draw.text((TEXT_LEFT, y), words[0], font=font_quote, fill=(255, 255, 255))
 
     # Render author name in bottom-right corner below the quote area
     author_font = get_font(regular_font_path, 18, "regular")

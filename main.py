@@ -266,10 +266,11 @@ def render_quote_image(quote, author, template_path=TEMPLATE_PATH, icon_path=PHO
         last_line_y = start_y + (len(lines) - 1) * line_height
         last_letter_center_y = last_line_y + int(selected_font_size * 0.48)
         pos_rx = last_line_rx + 6
-        pos_ry = last_letter_center_y - 10
+        pos_ry = last_letter_center_y
 
         img.paste(icon_l, (int(pos_lx), int(pos_ly)), icon_l)
         img.paste(icon_r, (int(pos_rx), int(pos_ry)), icon_r)
+
 
 
     img.convert("RGB").save(output_path, quality=95)

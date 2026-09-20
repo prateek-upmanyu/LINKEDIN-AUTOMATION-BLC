@@ -222,9 +222,13 @@ AUTHOR: [Full Name of the Author]"""
 # Bogart Font candidate filenames (place your Bogart-SemiBold.ttf or Bogart-Regular.ttf in this directory)
 BOGART_BOLD_CANDIDATES = [
     "Bogart-SemiBold.ttf",
+    "Bogart-Semibold-trial.ttf",
     "Bogart-Bold.ttf",
+    "Bogart-Bold-trial.ttf",
     "Bogart-Medium.ttf",
+    "Bogart-Medium-trial.ttf",
     "Bogart-Regular.ttf",
+    "Bogart-Regular-trial.ttf",
     "Bogart.ttf",
     "bogart.ttf",
     "Bogart-SemiBold.otf",
@@ -235,8 +239,11 @@ BOGART_BOLD_CANDIDATES = [
 
 BOGART_REGULAR_CANDIDATES = [
     "Bogart-Regular.ttf",
+    "Bogart-Regular-trial.ttf",
     "Bogart-Medium.ttf",
+    "Bogart-Medium-trial.ttf",
     "Bogart-Light.ttf",
+    "Bogart-Light-trial.ttf",
     "Bogart-Book.ttf",
     "Bogart.ttf",
     "bogart.ttf",

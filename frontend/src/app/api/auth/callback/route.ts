@@ -69,8 +69,8 @@ export async function GET(request: Request) {
   }
 
   const githubPat = process.env.GITHUB_PAT;
-  const repoOwner = process.env.GITHUB_REPO_OWNER || process.env.VERCEL_GIT_REPO_OWNER || 'Rushikeshkhadke';
-  const repoName = process.env.GITHUB_REPO_NAME || process.env.VERCEL_GIT_REPO_SLUG || 'linkedin-quote-automation';
+  const repoOwner = process.env.GITHUB_REPO_OWNER || process.env.VERCEL_GIT_REPO_OWNER || 'prateek-upmanyu';
+  const repoName = process.env.GITHUB_REPO_NAME || process.env.VERCEL_GIT_REPO_SLUG || 'LINKEDIN-AUTOMATION-BLC';
 
 
   if (!githubPat) {

@@ -1,0 +1,45 @@
+=======================================================
+BULK LEADS CALLER - LINKEDIN AUTOMATION SETUP GUIDE
+=======================================================
+
+Hi Prateek,
+
+Here are your environment variables and quick 2-minute setup instructions for Vercel deployment.
+
+-------------------------------------------------------
+1. ENVIRONMENT VARIABLES (Copy & paste into Vercel)
+-------------------------------------------------------
+GITHUB_PAT=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
+GITHUB_REPO_OWNER=prateek-upmanyu
+GITHUB_REPO_NAME=LINKEDIN-AUTOMATION-BLC
+LINKEDIN_CLIENT_ID=77p7ksoh6tlds2
+LINKEDIN_CLIENT_SECRET=WPL_AP1.6nTlRA2y9v73RxIA.2TulTw==
+LINKEDIN_ORGANIZATION_ID=121934837
+GEMINI_API_KEY=AQ.Ab8RN6IuB9iVGuASa88ySS6IAjBUT_RRVEhmpxeK6yBXqlArSQ
+
+
+-------------------------------------------------------
+2. VERCEL DEPLOYMENT (3 Steps)
+-------------------------------------------------------
+Step 1: Go to https://vercel.com/new and import the repository:
+        "prateek-upmanyu/LINKEDIN-AUTOMATION-BLC"
+
+Step 2: In Project Settings:
+        - Set "Root Directory" -> Click Edit -> Select "frontend" -> Click Continue.
+        - Under "Environment Variables", paste the values from section 1 above.
+
+Step 3: Click "Deploy".
+
+
+-------------------------------------------------------
+3. CONNECT LINKEDIN (One-time Authorization)
+-------------------------------------------------------
+1. In your LinkedIn Developer App (CONTENT-AUTOMATION-BLC), add your Vercel URL to Redirect URLs:
+   https://YOUR-VERCEL-DOMAIN.vercel.app/api/auth/callback
+
+2. Open your deployed Vercel site and click the blue button:
+   "Connect with LinkedIn" -> Log in with your LinkedIn Admin account and click "Allow".
+
+3. You are all set! The system will automatically generate, design, and post a fresh sales quote to your Bulk Leads Caller Business Page daily at 9:00 AM IST.
+
+=======================================================

@@ -14,6 +14,14 @@ GEMINI_API_KEY = (os.environ.get("GEMINI_API_KEY") or "").strip().strip('"').str
 LINKEDIN_ACCESS_TOKEN = (os.environ.get("LINKEDIN_ACCESS_TOKEN") or "").strip().strip('"').strip("'")
 LINKEDIN_AUTHOR_URN = (os.environ.get("LINKEDIN_AUTHOR_URN") or "").strip().strip('"').strip("'")
 
+# Startup token diagnostics (masked for security)
+def _mask(s):
+    return f"{s[:8]}...{s[-4:]}" if len(s) > 12 else ("(empty)" if not s else "(too short)")
+
+print(f"[INIT] LINKEDIN_ACCESS_TOKEN: {_mask(LINKEDIN_ACCESS_TOKEN)} (len={len(LINKEDIN_ACCESS_TOKEN)})")
+print(f"[INIT] LINKEDIN_AUTHOR_URN  : {LINKEDIN_AUTHOR_URN or '(empty)'}")
+print(f"[INIT] GEMINI_API_KEY       : {_mask(GEMINI_API_KEY)} (len={len(GEMINI_API_KEY)})")
+
 TEMPLATE_PATH = "template.png"
 PHONE_ICON_PATH = "phone_quote_icon.png"
 OUTPUT_IMAGE_PATH = "quote_output.png"

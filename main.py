@@ -194,7 +194,11 @@ AUTHOR: [Full Name of the Author]"""
                             return quote, author
 
                 except Exception as e:
-                    print(f"Model {model_name} note: {e}")
+                    err_str = str(e)
+                    print(f"Model {clean_name} note: {err_str[:120]}...")
+                    if "401" in err_str or "invalid authentication" in err_str.lower():
+                        print("Notice: GEMINI_API_KEY is invalid. Switching to curated verified sales database.")
+                        break
                     continue
 
         except Exception as e:
@@ -503,7 +507,7 @@ def post_to_linkedin(quote, author, asset_urn, author_urn):
         f"#Sales #ColdCalling #LeadGeneration #BulkLeadsCaller #SalesMotivation #BusinessGrowth"
     )
 
-    def create_payload(target_author):
+    def create_payload(target_author, target_asset_urn):
         return {
             "author": target_author,
             "lifecycleState": "PUBLISHED",
@@ -515,7 +519,7 @@ def post_to_linkedin(quote, author, asset_urn, author_urn):
                         {
                             "status": "READY",
                             "description": {"text": f"Daily sales quote by {author}"},
-                            "media": asset_urn,
+                            "media": target_asset_urn,
                             "title": {"text": "Daily Quote - Bulk Leads Caller"},
                         }
                     ],
@@ -524,21 +528,20 @@ def post_to_linkedin(quote, author, asset_urn, author_urn):
             "visibility": {"com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC"},
         }
 
-    res = requests.post(post_url, headers=headers, json=create_payload(author_urn))
+    res = requests.post(post_url, headers=headers, json=create_payload(author_urn, asset_urn))
     
     # If 403 on organization author, fallback to authenticated person URN
     if res.status_code == 403 and "organization" in str(author_urn):
-        print(f"Notice: Organization author ({author_urn}) rejected (requires Community Management API / admin scope).")
+        print(f"Notice: Organization author ({author_urn}) rejected: {res.text}")
         person_urn = get_person_urn(LINKEDIN_ACCESS_TOKEN)
         if person_urn and person_urn != author_urn:
             print(f"Retrying publication with Member profile ({person_urn})...")
-            # Need to re-upload with person as owner if asset is bound to owner
             try:
                 asset_urn_person, _ = upload_image_to_linkedin(OUTPUT_IMAGE_PATH, person_urn)
-                res = requests.post(post_url, headers=headers, json=create_payload(person_urn))
+                res = requests.post(post_url, headers=headers, json=create_payload(person_urn, asset_urn_person))
             except Exception as e:
-                print(f"Person re-upload notice: {e}")
-                res = requests.post(post_url, headers=headers, json=create_payload(person_urn))
+                print(f"Person re-upload fallback notice: {e}")
+                res = requests.post(post_url, headers=headers, json=create_payload(person_urn, asset_urn))
 
     if res.status_code != 201:
         raise RuntimeError(f"Failed to publish post to LinkedIn: {res.status_code} - {res.text}")

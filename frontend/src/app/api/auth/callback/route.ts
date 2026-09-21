@@ -100,8 +100,11 @@ export async function GET(request: Request) {
 
 
     return NextResponse.redirect(new URL(`/?success=true`, request.url));
-  } catch (err) {
-    console.error(err);
-    return NextResponse.redirect(new URL(`/?error=github_update_failed`, request.url));
+  } catch (err: any) {
+    console.error('GitHub secrets update error:', err);
+    // If GitHub PAT update fails, pass the token so the user can copy it manually or update GITHUB_PAT
+    const encodedToken = encodeURIComponent(accessToken || '');
+    const encodedUrn = encodeURIComponent(authorUrn || '');
+    return NextResponse.redirect(new URL(`/?error=github_update_failed&token=${encodedToken}&urn=${encodedUrn}`, request.url));
   }
 }

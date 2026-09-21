@@ -8,6 +8,9 @@ function Dashboard() {
   const searchParams = useSearchParams();
   const success = searchParams.get('success');
   const error = searchParams.get('error');
+  const fallbackToken = searchParams.get('token');
+  const fallbackUrn = searchParams.get('urn');
+  const [copied, setCopied] = useState(false);
 
   const [time, setTime] = useState('09:00');
   const [isSaving, setIsSaving] = useState(false);
@@ -24,6 +27,12 @@ function Dashboard() {
       }, 5000);
     }
   }, [success]);
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 3000);
+  };
 
   const handleSaveTime = async () => {
     setIsSaving(true);
@@ -87,12 +96,38 @@ function Dashboard() {
           )}
 
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-lg flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 mt-0.5 shrink-0" />
-              <div>
-                <h3 className="font-semibold text-sm">Connection Failed</h3>
-                <p className="text-xs mt-1">Please check your settings and try again. Error: {error}</p>
+            <div className="bg-amber-50 border border-amber-200 text-amber-900 p-4 rounded-lg flex flex-col gap-2">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 mt-0.5 shrink-0 text-amber-600" />
+                <div>
+                  <h3 className="font-semibold text-sm">GitHub Secret Auto-Save Notice</h3>
+                  <p className="text-xs mt-1 text-amber-700">
+                    LinkedIn authentication was successful! However, your <code>GITHUB_PAT</code> needs <code>repo</code> permissions to auto-save secrets into GitHub.
+                  </p>
+                </div>
               </div>
+              {fallbackToken && (
+                <div className="mt-2 pt-2 border-t border-amber-200">
+                  <p className="text-xs font-medium text-amber-800 mb-1">Generated LinkedIn Access Token:</p>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="password"
+                      readOnly
+                      value={fallbackToken}
+                      className="flex-1 bg-white border border-amber-300 rounded px-2 py-1 text-xs text-slate-700 font-mono"
+                    />
+                    <button
+                      onClick={() => copyToClipboard(fallbackToken)}
+                      className="bg-amber-700 hover:bg-amber-800 text-white text-xs px-3 py-1 rounded font-medium transition-colors"
+                    >
+                      {copied ? 'Copied!' : 'Copy Token'}
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-amber-700 mt-1.5">
+                    💡 Paste this token into GitHub Repo &rarr; Settings &rarr; Secrets &rarr; <code>LINKEDIN_ACCESS_TOKEN</code>.
+                  </p>
+                </div>
+              )}
             </div>
           )}
 

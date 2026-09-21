@@ -422,10 +422,34 @@ def render_quote_image(quote, author, template_path=TEMPLATE_PATH, icon_path=PHO
 
 
 
-def upload_image_to_linkedin(image_path):
+def get_person_urn(access_token):
+    """Fetches the authenticated member's person URN from LinkedIn userinfo."""
+    try:
+        res = requests.get(
+            "https://api.linkedin.com/v2/userinfo",
+            headers={"Authorization": f"Bearer {access_token}"}
+        )
+        if res.status_code == 200:
+            data = res.json()
+            sub = data.get("sub")
+            if sub:
+                return f"urn:li:person:{sub}"
+    except Exception as e:
+        print(f"Notice: Could not fetch userinfo: {e}")
+    return None
+
+
+def upload_image_to_linkedin(image_path, author_urn):
     """Registers and uploads image to LinkedIn Assets API."""
-    if not LINKEDIN_ACCESS_TOKEN or not LINKEDIN_AUTHOR_URN:
-        raise ValueError("LINKEDIN_ACCESS_TOKEN or LINKEDIN_AUTHOR_URN is missing.")
+    if not LINKEDIN_ACCESS_TOKEN:
+        raise ValueError("LINKEDIN_ACCESS_TOKEN is missing.")
+
+    owner_urn = author_urn or LINKEDIN_AUTHOR_URN
+    if not owner_urn:
+        person_urn = get_person_urn(LINKEDIN_ACCESS_TOKEN)
+        owner_urn = person_urn
+        if not owner_urn:
+            raise ValueError("Could not determine LinkedIn author/owner URN.")
 
     register_url = "https://api.linkedin.com/v2/assets?action=registerUpload"
     headers = {
@@ -436,7 +460,7 @@ def upload_image_to_linkedin(image_path):
     register_body = {
         "registerUploadRequest": {
             "recipes": ["urn:li:digitalmediaRecipe:feedshare-image"],
-            "owner": LINKEDIN_AUTHOR_URN,
+            "owner": owner_urn,
             "serviceRelationships": [
                 {
                     "relationshipType": "OWNER",
@@ -462,10 +486,10 @@ def upload_image_to_linkedin(image_path):
     if upload_res.status_code not in (200, 201):
         raise RuntimeError(f"Failed to upload binary image to LinkedIn: {upload_res.status_code} - {upload_res.text}")
 
-    return asset_urn
+    return asset_urn, owner_urn
 
 
-def post_to_linkedin(quote, author, asset_urn):
+def post_to_linkedin(quote, author, asset_urn, author_urn):
     """Publishes the image post to LinkedIn feed with formatted commentary."""
     post_url = "https://api.linkedin.com/v2/ugcPosts"
     headers = {
@@ -479,27 +503,43 @@ def post_to_linkedin(quote, author, asset_urn):
         f"#Sales #ColdCalling #LeadGeneration #BulkLeadsCaller #SalesMotivation #BusinessGrowth"
     )
 
-    post_body = {
-        "author": LINKEDIN_AUTHOR_URN,
-        "lifecycleState": "PUBLISHED",
-        "specificContent": {
-            "com.linkedin.ugc.ShareContent": {
-                "shareCommentary": {"text": commentary},
-                "shareMediaCategory": "IMAGE",
-                "media": [
-                    {
-                        "status": "READY",
-                        "description": {"text": f"Daily sales quote by {author}"},
-                        "media": asset_urn,
-                        "title": {"text": "Daily Quote - Bulk Leads Caller"},
-                    }
-                ],
-            }
-        },
-        "visibility": {"com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC"},
-    }
+    def create_payload(target_author):
+        return {
+            "author": target_author,
+            "lifecycleState": "PUBLISHED",
+            "specificContent": {
+                "com.linkedin.ugc.ShareContent": {
+                    "shareCommentary": {"text": commentary},
+                    "shareMediaCategory": "IMAGE",
+                    "media": [
+                        {
+                            "status": "READY",
+                            "description": {"text": f"Daily sales quote by {author}"},
+                            "media": asset_urn,
+                            "title": {"text": "Daily Quote - Bulk Leads Caller"},
+                        }
+                    ],
+                }
+            },
+            "visibility": {"com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC"},
+        }
 
-    res = requests.post(post_url, headers=headers, json=post_body)
+    res = requests.post(post_url, headers=headers, json=create_payload(author_urn))
+    
+    # If 403 on organization author, fallback to authenticated person URN
+    if res.status_code == 403 and "organization" in str(author_urn):
+        print(f"Notice: Organization author ({author_urn}) rejected (requires Community Management API / admin scope).")
+        person_urn = get_person_urn(LINKEDIN_ACCESS_TOKEN)
+        if person_urn and person_urn != author_urn:
+            print(f"Retrying publication with Member profile ({person_urn})...")
+            # Need to re-upload with person as owner if asset is bound to owner
+            try:
+                asset_urn_person, _ = upload_image_to_linkedin(OUTPUT_IMAGE_PATH, person_urn)
+                res = requests.post(post_url, headers=headers, json=create_payload(person_urn))
+            except Exception as e:
+                print(f"Person re-upload notice: {e}")
+                res = requests.post(post_url, headers=headers, json=create_payload(person_urn))
+
     if res.status_code != 201:
         raise RuntimeError(f"Failed to publish post to LinkedIn: {res.status_code} - {res.text}")
 
@@ -532,11 +572,11 @@ def main():
     image_path = render_quote_image(quote, author)
 
     print("\n[4/5] Uploading image to LinkedIn...")
-    asset_urn = upload_image_to_linkedin(image_path)
-    print(f"Uploaded asset URN: {asset_urn}")
+    asset_urn, used_owner_urn = upload_image_to_linkedin(image_path, LINKEDIN_AUTHOR_URN)
+    print(f"Uploaded asset URN: {asset_urn} (Owner: {used_owner_urn})")
 
     print("\n[5/5] Publishing post to LinkedIn...")
-    post_url = post_to_linkedin(quote, author, asset_urn)
+    post_url = post_to_linkedin(quote, author, asset_urn, used_owner_urn)
     print(f"SUCCESS! Published post URL: {post_url}")
 
     print("\nLogging quote to history...")

@@ -10,9 +10,9 @@ from PIL import Image, ImageDraw, ImageFont
 # ==========================================
 # CONFIGURATION & ENVIRONMENT VARIABLES
 # ==========================================
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
-LINKEDIN_ACCESS_TOKEN = os.environ.get("LINKEDIN_ACCESS_TOKEN")
-LINKEDIN_AUTHOR_URN = os.environ.get("LINKEDIN_AUTHOR_URN")
+GEMINI_API_KEY = (os.environ.get("GEMINI_API_KEY") or "").strip().strip('"').strip("'")
+LINKEDIN_ACCESS_TOKEN = (os.environ.get("LINKEDIN_ACCESS_TOKEN") or "").strip().strip('"').strip("'")
+LINKEDIN_AUTHOR_URN = (os.environ.get("LINKEDIN_AUTHOR_URN") or "").strip().strip('"').strip("'")
 
 TEMPLATE_PATH = "template.png"
 PHONE_ICON_PATH = "phone_quote_icon.png"

@@ -11,6 +11,7 @@ from PIL import Image, ImageDraw, ImageFont
 # CONFIGURATION & ENVIRONMENT VARIABLES
 # ==========================================
 GEMINI_API_KEY = (os.environ.get("GEMINI_API_KEY") or "").strip().strip('"').strip("'")
+GROQ_API_KEY = (os.environ.get("GROQ_API_KEY") or "").strip().strip('"').strip("'")
 LINKEDIN_ACCESS_TOKEN = (os.environ.get("LINKEDIN_ACCESS_TOKEN") or "").strip().strip('"').strip("'")
 LINKEDIN_AUTHOR_URN = (os.environ.get("LINKEDIN_AUTHOR_URN") or "").strip().strip('"').strip("'")
 BUFFER_TOKEN = (os.environ.get("BUFFER_TOKEN") or "IfwhI__dFlw9aanEGYQq1QpIq147g3pOUz4gqVhjuDq").strip().strip('"').strip("'")
@@ -22,6 +23,7 @@ def _mask(s):
 print(f"[INIT] LINKEDIN_ACCESS_TOKEN: {_mask(LINKEDIN_ACCESS_TOKEN)} (len={len(LINKEDIN_ACCESS_TOKEN)})")
 print(f"[INIT] LINKEDIN_AUTHOR_URN  : {LINKEDIN_AUTHOR_URN or '(empty)'}")
 print(f"[INIT] GEMINI_API_KEY       : {_mask(GEMINI_API_KEY)} (len={len(GEMINI_API_KEY)})")
+print(f"[INIT] GROQ_API_KEY         : {_mask(GROQ_API_KEY)} (len={len(GROQ_API_KEY)})")
 print(f"[INIT] BUFFER_TOKEN         : {_mask(BUFFER_TOKEN)} (len={len(BUFFER_TOKEN)})")
 
 TEMPLATE_PATH = "template.png"
@@ -123,10 +125,78 @@ VERIFIED_SALES_QUOTES_DB = [
 def generate_unique_quote(previous_quotes):
     """
     Generates or retrieves a 100% real, verified quote strictly related to SALES.
-    1. First attempts via Google Gemini API (discovering active models dynamically like gemini-3.6-flash).
+    0. Attempts via Groq API (Llama 3.3 70B - Lightning Fast & Free).
+    1. Attempts via Google Gemini API (discovering active models dynamically).
     2. Guarantees non-duplication against history.txt.
     3. Has an infallible curated offline sales database fallback so the pipeline NEVER crashes.
     """
+    # 0. Attempt generation via Groq API (Llama 3.3 70B)
+    if GROQ_API_KEY:
+        try:
+            print("Attempting quote generation via Groq API (llama-3.3-70b-versatile)...")
+            daily_focus_topics = random.sample(SALES_TOPICS_POOL, 3)
+            focus_topic_str = ", ".join(daily_focus_topics)
+            recent_history = "\n".join(f"- {q}" for q in previous_quotes[-30:]) if previous_quotes else "None"
+
+            prompt = f"""You are an elite sales leadership content curator for Bulk Leads Caller (a B2B sales & cold calling agency).
+Your task is to find a real, verified, highly inspiring and actionable quote from a well-known sales leader, master negotiator, business authority, or psychological influence expert.
+
+TODAY'S SALES FOCUS THEMES:
+{focus_topic_str}
+
+REPRESENTATIVE AUTHORITIES (or similar renowned sales/business minds):
+Brian Tracy, Jeffrey Gitomer, Zig Ziglar, Dale Carnegie, Jeb Blount, Jill Konrath, Chris Voss, Robert Cialdini, Grant Cardone, Neil Rackham, Chet Holmes, Mark Cuban, Jordan Belfort, David Sandler, Steve Jobs, Gary Vaynerchuk, Napoleon Hill.
+
+STRICT CONTENT RULES:
+1. The quote MUST be a 100% REAL, AUTHENTIC, HISTORICALLY DOCUMENTED quote actually spoken or published by a real person (sales leader, entrepreneur, psychologist, or author). NEVER invent, synthesize, or hallucinate a quote.
+2. The quote MUST be exclusively related to SALES (e.g. cold outreach, prospecting, closing, handling objections, negotiation, follow-up, pricing, buyer psychology, discipline, resilience, or closing deals).
+3. Keep the quote punchy and impactful (between 8 to 24 words).
+4. Do NOT use generic motivational quotes (it must be directly relevant to sales professionals, closers, and entrepreneurs).
+5. Do NOT include quotation marks around the quote.
+6. The AUTHOR must be the actual real full name of the person who said it.
+
+DO NOT REPEAT ANY OF THESE PREVIOUSLY POSTED QUOTES:
+{recent_history}
+
+RETURN ONLY IN THIS EXACT 2-LINE FORMAT (NO OTHER TEXT OR MARKDOWN):
+QUOTE: [Plain quote text without quotation marks]
+AUTHOR: [Full Name of the Author]"""
+
+            groq_headers = {
+                "Authorization": f"Bearer {GROQ_API_KEY}",
+                "Content-Type": "application/json"
+            }
+            groq_payload = {
+                "model": "llama-3.3-70b-versatile",
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.7
+            }
+            res = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=groq_headers, json=groq_payload, timeout=12)
+            if res.status_code == 200:
+                res_json = res.json()
+                response_text = res_json["choices"][0]["message"]["content"].strip()
+                quote = ""
+                author = ""
+                for line in response_text.split("\n"):
+                    line = line.strip()
+                    if line.startswith("QUOTE:"):
+                        quote = line.replace("QUOTE:", "").strip().strip('"').strip("'").strip("“").strip("”")
+                    elif line.startswith("AUTHOR:"):
+                        author = line.replace("AUTHOR:", "").strip().lstrip("—").lstrip("-").strip()
+
+                if quote and author:
+                    is_duplicate = any(
+                        quote.lower() in prev.lower() or prev.lower() in quote.lower()
+                        for prev in previous_quotes
+                    )
+                    if not is_duplicate:
+                        print(f"Successfully generated unique quote via Groq API (llama-3.3-70b-versatile)!")
+                        return quote, author
+            else:
+                print(f"Groq API note: {res.status_code} - {res.text[:120]}")
+        except Exception as e:
+            print(f"Groq API exception notice: {e}")
+
     # 1. Attempt generation via Google Gemini API
     if GEMINI_API_KEY:
         try:

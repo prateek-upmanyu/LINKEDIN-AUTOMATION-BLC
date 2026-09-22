@@ -278,7 +278,7 @@ def render_quote_image(quote, author, template_path=TEMPLATE_PATH, icon_path=PHO
                     for ln in cand_lines
                 ]
                 if max(widths) <= MAX_TEXT_WIDTH and len(cand_lines) <= 4:
-                    selected_font_size = f_size
+                    selected_size = f_size
                     lines = cand_lines
                     font_quote = font_q
                     break
@@ -487,30 +487,10 @@ def post_to_linkedin(quote, author, asset_urn, author_urn):
 
 
 def append_to_history(quote, author, post_url, history_path=HISTORY_FILE):
-    """Appends successful quote publication to history.txt and history_backup.json."""
+    """Appends successful quote publication to history.txt."""
     date_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     with open(history_path, "a", encoding="utf-8") as f:
         f.write(f"{date_str} | {author}: {quote} | {post_url}\n")
-    
-    # Save structured JSON history backup
-    json_path = "history_backup.json"
-    history_items = []
-    if os.path.exists(json_path):
-        try:
-            with open(json_path, "r", encoding="utf-8") as f:
-                history_items = json.load(f)
-        except Exception:
-            history_items = []
-    
-    history_items.append({
-        "timestamp": date_str,
-        "author": author,
-        "quote": quote,
-        "post_url": post_url
-    })
-    
-    with open(json_path, "w", encoding="utf-8") as f:
-        json.dump(history_items, f, indent=2, ensure_ascii=False)
 
 
 def post_via_buffer(quote, author, image_path):

@@ -132,19 +132,18 @@ function Dashboard() {
           )}
 
           <div className="space-y-4">
-            <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
-              <h3 className="font-semibold text-slate-700 text-sm flex items-center gap-2 mb-2">
-                <LinkIcon className="w-4 h-4 text-[#0A66C2]" />
-                1. Connect LinkedIn
+            <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-200">
+              <h3 className="font-semibold text-emerald-800 text-sm flex items-center gap-2 mb-1">
+                <CheckCircle className="w-4 h-4 text-emerald-600" />
+                1. LinkedIn Account Status
               </h3>
-              <p className="text-xs text-slate-500 mb-4">Authorize the app to post daily quotes on your behalf.</p>
-              <a
-                href="/api/auth/linkedin"
-                className="w-full flex items-center justify-center gap-2 bg-[#0A66C2] hover:bg-[#084e96] text-white py-2.5 px-4 rounded-lg font-medium text-sm transition-colors"
-              >
-                <LinkIcon className="w-4 h-4" />
-                Connect with LinkedIn
-              </a>
+              <p className="text-xs text-emerald-700 font-medium">
+                Connected via Buffer API &rarr; Bulk Leads Caller Page
+              </p>
+              <div className="mt-2.5 flex items-center gap-1.5 text-[11px] text-emerald-800 font-semibold bg-emerald-100/80 px-2.5 py-1 rounded-md w-fit">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                Active &amp; Ready for Daily Post
+              </div>
             </div>
 
             <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">

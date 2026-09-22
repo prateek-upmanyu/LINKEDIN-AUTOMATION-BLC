@@ -2,8 +2,8 @@ name: Daily LinkedIn Quote Automation
 
 on:
   schedule:
-    # Optimal B2B LinkedIn Peak Engagement Window: 9:30 AM IST (4:00 AM UTC)
-    - cron: '0 4 * * *'
+    # 9:00 AM IST (3:30 AM UTC)
+    - cron: '30 3 * * *'
   workflow_dispatch: # Allows manual trigger anytime from GitHub Actions tab
 
 jobs:

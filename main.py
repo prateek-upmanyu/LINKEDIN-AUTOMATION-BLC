@@ -13,6 +13,7 @@ from PIL import Image, ImageDraw, ImageFont
 GEMINI_API_KEY = (os.environ.get("GEMINI_API_KEY") or "").strip().strip('"').strip("'")
 LINKEDIN_ACCESS_TOKEN = (os.environ.get("LINKEDIN_ACCESS_TOKEN") or "").strip().strip('"').strip("'")
 LINKEDIN_AUTHOR_URN = (os.environ.get("LINKEDIN_AUTHOR_URN") or "").strip().strip('"').strip("'")
+BUFFER_TOKEN = (os.environ.get("BUFFER_TOKEN") or "IfwhI__dFlw9aanEGYQq1QpIq147g3pOUz4gqVhjuDq").strip().strip('"').strip("'")
 
 # Startup token diagnostics (masked for security)
 def _mask(s):
@@ -21,6 +22,7 @@ def _mask(s):
 print(f"[INIT] LINKEDIN_ACCESS_TOKEN: {_mask(LINKEDIN_ACCESS_TOKEN)} (len={len(LINKEDIN_ACCESS_TOKEN)})")
 print(f"[INIT] LINKEDIN_AUTHOR_URN  : {LINKEDIN_AUTHOR_URN or '(empty)'}")
 print(f"[INIT] GEMINI_API_KEY       : {_mask(GEMINI_API_KEY)} (len={len(GEMINI_API_KEY)})")
+print(f"[INIT] BUFFER_TOKEN         : {_mask(BUFFER_TOKEN)} (len={len(BUFFER_TOKEN)})")
 
 TEMPLATE_PATH = "template.png"
 PHONE_ICON_PATH = "phone_quote_icon.png"
@@ -565,6 +567,117 @@ def append_to_history(quote, author, post_url, history_path=HISTORY_FILE):
         f.write(f"{date_str} | {author}: {quote} | {post_url}\n")
 
 
+def post_via_buffer(quote, author, image_path):
+    """Publishes quote image directly to Bulk Leads Caller LinkedIn Business Page via Buffer GraphQL API."""
+    print("Uploading quote image to public CDN for Buffer...")
+    with open(image_path, "rb") as f:
+        r_upload = requests.post("https://catbox.moe/user/api.php", data={"reqtype": "fileupload"}, files={"fileToUpload": f}, timeout=15)
+        if r_upload.status_code != 200:
+            raise RuntimeError(f"Failed to upload image to CDN for Buffer: {r_upload.text}")
+        image_url = r_upload.text.strip()
+    print(f"CDN image URL: {image_url}")
+
+    headers = {
+        "Authorization": f"Bearer {BUFFER_TOKEN}",
+        "Content-Type": "application/json"
+    }
+    url = "https://api.buffer.com"
+
+    # 1. Fetch organization ID
+    q_org = {"query": "query { account { organizations { id name } } }"}
+    r_org = requests.post(url, headers=headers, json=q_org, timeout=10)
+    if r_org.status_code != 200 or "data" not in r_org.json():
+        raise RuntimeError(f"Buffer organization query failed: {r_org.text}")
+    
+    orgs = r_org.json()["data"]["account"]["organizations"]
+    if not orgs:
+        raise RuntimeError("No organizations found in Buffer account.")
+    org_id = orgs[0]["id"]
+
+    # 2. Fetch channels (LinkedIn Business Page)
+    q_chan = {
+        "query": "query GetChannels($input: ChannelsInput!) { channels(input: $input) { id name service type } }",
+        "variables": {"input": {"organizationId": org_id}}
+    }
+    r_chan = requests.post(url, headers=headers, json=q_chan, timeout=10)
+    if r_chan.status_code != 200 or "data" not in r_chan.json():
+        raise RuntimeError(f"Buffer channels query failed: {r_chan.text}")
+    
+    channels = r_chan.json()["data"]["channels"]
+    target_channel = None
+    for c in channels:
+        if c.get("service") == "linkedin":
+            target_channel = c
+            break
+    
+    if not target_channel:
+        raise RuntimeError("No connected LinkedIn channel found in Buffer.")
+    
+    channel_id = target_channel["id"]
+    channel_name = target_channel["name"]
+    print(f"Targeting Buffer LinkedIn Business Page channel: '{channel_name}' (ID: {channel_id})")
+
+    # 3. Create post via Buffer GraphQL API
+    commentary = (
+        f'"{quote}"\n— {author}\n\n'
+        f"#Sales #ColdCalling #LeadGeneration #BulkLeadsCaller #SalesMotivation #BusinessGrowth"
+    )
+
+    mutation = """
+    mutation CreatePost($input: CreatePostInput!) {
+      createPost(input: $input) {
+        ... on PostActionSuccess {
+          post {
+            id
+            status
+          }
+        }
+        ... on InvalidInputError {
+          message
+        }
+        ... on UnexpectedError {
+          message
+        }
+        ... on RestProxyError {
+          message
+        }
+      }
+    }
+    """
+
+    variables = {
+      "input": {
+        "channelId": channel_id,
+        "text": commentary,
+        "mode": "shareNow",
+        "schedulingType": "automatic",
+        "assets": [
+          {
+            "image": {
+              "url": image_url
+            }
+          }
+        ]
+      }
+    }
+
+    res = requests.post(url, headers=headers, json={"query": mutation, "variables": variables}, timeout=15)
+    if res.status_code != 200:
+        raise RuntimeError(f"Buffer API request failed: {res.status_code} - {res.text}")
+    
+    res_data = res.json()
+    create_res = res_data.get("data", {}).get("createPost", {})
+    if "post" in create_res:
+        post_id = create_res["post"]["id"]
+        status = create_res["post"]["status"]
+        print(f"Buffer post created successfully! Post ID: {post_id} (Status: {status})")
+        return f"https://publish.buffer.com/profile/{channel_id}/buffer/queue"
+    elif "message" in create_res:
+        raise RuntimeError(f"Buffer post creation failed: {create_res['message']}")
+    else:
+        raise RuntimeError(f"Buffer unexpected response: {res_data}")
+
+
 def main():
     print("==========================================")
     print(" Bulk Leads Caller - Daily Quote Publisher")
@@ -582,12 +695,17 @@ def main():
     print("\n[3/5] Rendering text onto template with Pillow...")
     image_path = render_quote_image(quote, author)
 
-    print("\n[4/5] Uploading image to LinkedIn...")
-    asset_urn, used_owner_urn = upload_image_to_linkedin(image_path, LINKEDIN_AUTHOR_URN)
-    print(f"Uploaded asset URN: {asset_urn} (Owner: {used_owner_urn})")
+    if BUFFER_TOKEN:
+        print("\n[4/5 & 5/5] Publishing post to LinkedIn Business Page via Buffer API...")
+        post_url = post_via_buffer(quote, author, image_path)
+    else:
+        print("\n[4/5] Uploading image to LinkedIn...")
+        asset_urn, used_owner_urn = upload_image_to_linkedin(image_path, LINKEDIN_AUTHOR_URN)
+        print(f"Uploaded asset URN: {asset_urn} (Owner: {used_owner_urn})")
 
-    print("\n[5/5] Publishing post to LinkedIn...")
-    post_url = post_to_linkedin(quote, author, asset_urn, used_owner_urn)
+        print("\n[5/5] Publishing post to LinkedIn...")
+        post_url = post_to_linkedin(quote, author, asset_urn, used_owner_urn)
+
     print(f"SUCCESS! Published post URL: {post_url}")
 
     print("\nLogging quote to history...")

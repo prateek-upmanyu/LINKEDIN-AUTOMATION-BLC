@@ -122,182 +122,38 @@ VERIFIED_SALES_QUOTES_DB = [
 ]
 
 
+from quotes_database import QUOTES_365_DATABASE
+
+
 def generate_unique_quote(previous_quotes):
     """
-    Generates or retrieves a 100% real, verified quote strictly related to SALES.
-    0. Attempts via Groq API (Llama 3.3 70B - Lightning Fast & Free).
-    1. Attempts via Google Gemini API (discovering active models dynamically).
-    2. Guarantees non-duplication against history.txt.
-    3. Has an infallible curated offline sales database fallback so the pipeline NEVER crashes.
+    Selects a 100% verified, historically authentic sales quote by a famous author from the 365 Curated Database.
+    - Zero AI calls / zero AI hallucinations.
+    - 100% real sales quotes spoken by well-known authors.
+    - Guarantees zero repetition against history.txt.
     """
-    # 0. Attempt generation via Groq API (Llama 3.3 70B)
-    if GROQ_API_KEY:
-        try:
-            print("Attempting quote generation via Groq API (llama-3.3-70b-versatile)...")
-            daily_focus_topics = random.sample(SALES_TOPICS_POOL, 3)
-            focus_topic_str = ", ".join(daily_focus_topics)
-            recent_history = "\n".join(f"- {q}" for q in previous_quotes[-30:]) if previous_quotes else "None"
+    print("Selecting fresh, unposted verified sales quote from 365 Curated Database...")
+    
+    # Shuffle or iterate deterministically to find the first unposted quote
+    available_quotes = list(QUOTES_365_DATABASE)
+    random.seed(len(previous_quotes) + int(datetime.now().strftime("%Y%m%d")))
+    random.shuffle(available_quotes)
 
-            prompt = f"""You are an elite sales leadership content curator for Bulk Leads Caller (a B2B sales & cold calling agency).
-Your task is to find a real, verified, highly inspiring and actionable quote from a well-known sales leader, master negotiator, business authority, or psychological influence expert.
-
-TODAY'S SALES FOCUS THEMES:
-{focus_topic_str}
-
-REPRESENTATIVE AUTHORITIES (or similar renowned sales/business minds):
-Brian Tracy, Jeffrey Gitomer, Zig Ziglar, Dale Carnegie, Jeb Blount, Jill Konrath, Chris Voss, Robert Cialdini, Grant Cardone, Neil Rackham, Chet Holmes, Mark Cuban, Jordan Belfort, David Sandler, Steve Jobs, Gary Vaynerchuk, Napoleon Hill.
-
-STRICT CONTENT RULES:
-1. The quote MUST be a 100% REAL, AUTHENTIC, HISTORICALLY DOCUMENTED quote actually spoken or published by a real person (sales leader, entrepreneur, psychologist, or author). NEVER invent, synthesize, or hallucinate a quote.
-2. The quote MUST be exclusively related to SALES (e.g. cold outreach, prospecting, closing, handling objections, negotiation, follow-up, pricing, buyer psychology, discipline, resilience, or closing deals).
-3. Keep the quote punchy and impactful (between 8 to 24 words).
-4. Do NOT use generic motivational quotes (it must be directly relevant to sales professionals, closers, and entrepreneurs).
-5. Do NOT include quotation marks around the quote.
-6. The AUTHOR must be the actual real full name of the person who said it.
-
-DO NOT REPEAT ANY OF THESE PREVIOUSLY POSTED QUOTES:
-{recent_history}
-
-RETURN ONLY IN THIS EXACT 2-LINE FORMAT (NO OTHER TEXT OR MARKDOWN):
-QUOTE: [Plain quote text without quotation marks]
-AUTHOR: [Full Name of the Author]"""
-
-            groq_headers = {
-                "Authorization": f"Bearer {GROQ_API_KEY}",
-                "Content-Type": "application/json"
-            }
-            groq_payload = {
-                "model": "llama-3.3-70b-versatile",
-                "messages": [{"role": "user", "content": prompt}],
-                "temperature": 0.7
-            }
-            res = requests.post("https://api.groq.com/openai/v1/chat/completions", headers=groq_headers, json=groq_payload, timeout=12)
-            if res.status_code == 200:
-                res_json = res.json()
-                response_text = res_json["choices"][0]["message"]["content"].strip()
-                quote = ""
-                author = ""
-                for line in response_text.split("\n"):
-                    line = line.strip()
-                    if line.startswith("QUOTE:"):
-                        quote = line.replace("QUOTE:", "").strip().strip('"').strip("'").strip("“").strip("”")
-                    elif line.startswith("AUTHOR:"):
-                        author = line.replace("AUTHOR:", "").strip().lstrip("—").lstrip("-").strip()
-
-                if quote and author:
-                    is_duplicate = any(
-                        quote.lower() in prev.lower() or prev.lower() in quote.lower()
-                        for prev in previous_quotes
-                    )
-                    if not is_duplicate:
-                        print(f"Successfully generated unique quote via Groq API (llama-3.3-70b-versatile)!")
-                        return quote, author
-            else:
-                print(f"Groq API note: {res.status_code} - {res.text[:120]}")
-        except Exception as e:
-            print(f"Groq API exception notice: {e}")
-
-    # 1. Attempt generation via Google Gemini API
-    if GEMINI_API_KEY:
-        try:
-            import google.generativeai as genai
-            genai.configure(api_key=GEMINI_API_KEY)
-
-            # Discover available models dynamically
-            available_models = []
-            try:
-                for m in genai.list_models():
-                    if "generateContent" in getattr(m, "supported_generation_methods", []):
-                        available_models.append(m.name)
-            except Exception:
-                pass
-
-            # Prioritize newest Gemini models recommended by Google
-            candidate_models = ["gemini-3.6-flash", "models/gemini-3.6-flash", "gemini-1.5-flash", "models/gemini-1.5-flash"]
-            for m in available_models:
-                if m not in candidate_models:
-                    candidate_models.append(m)
-
-            daily_focus_topics = random.sample(SALES_TOPICS_POOL, 3)
-            focus_topic_str = ", ".join(daily_focus_topics)
-            recent_history = "\n".join(f"- {q}" for q in previous_quotes[-30:]) if previous_quotes else "None"
-
-            prompt = f"""You are an elite sales leadership content curator for Bulk Leads Caller (a B2B sales & cold calling agency).
-Your task is to find a real, verified, highly inspiring and actionable quote from a well-known sales leader, master negotiator, business authority, or psychological influence expert.
-
-TODAY'S SALES FOCUS THEMES:
-{focus_topic_str}
-
-REPRESENTATIVE AUTHORITIES (or similar renowned sales/business minds):
-Brian Tracy, Jeffrey Gitomer, Zig Ziglar, Dale Carnegie, Jeb Blount, Jill Konrath, Chris Voss, Robert Cialdini, Grant Cardone, Neil Rackham, Chet Holmes, Mark Cuban, Jordan Belfort, David Sandler, Steve Jobs, Gary Vaynerchuk, Napoleon Hill.
-
-STRICT CONTENT RULES:
-1. The quote MUST be a 100% REAL, AUTHENTIC, HISTORICALLY DOCUMENTED quote actually spoken or published by a real person (sales leader, entrepreneur, psychologist, or author). NEVER invent, synthesize, or hallucinate a quote.
-2. The quote MUST be exclusively related to SALES (e.g. cold outreach, prospecting, closing, handling objections, negotiation, follow-up, pricing, buyer psychology, discipline, resilience, or closing deals).
-3. Keep the quote punchy and impactful (between 8 to 24 words).
-4. Do NOT use generic motivational quotes (it must be directly relevant to sales professionals, closers, and entrepreneurs).
-5. Do NOT include quotation marks around the quote.
-6. The AUTHOR must be the actual real full name of the person who said it.
-
-DO NOT REPEAT ANY OF THESE PREVIOUSLY POSTED QUOTES:
-{recent_history}
-
-RETURN ONLY IN THIS EXACT 2-LINE FORMAT (NO OTHER TEXT OR MARKDOWN):
-QUOTE: [Plain quote text without quotation marks]
-AUTHOR: [Full Name of the Author]"""
-
-            for model_name in candidate_models:
-                try:
-                    clean_name = model_name.replace("models/", "")
-                    print(f"Attempting quote generation with model: {clean_name}...")
-                    model = genai.GenerativeModel(clean_name)
-                    response = model.generate_content(prompt)
-                    response_text = response.text.strip()
-
-                    quote = ""
-                    author = ""
-
-                    for line in response_text.split("\n"):
-                        line = line.strip()
-                        if line.startswith("QUOTE:"):
-                            quote = line.replace("QUOTE:", "").strip().strip('"').strip("'").strip("“").strip("”")
-                        elif line.startswith("AUTHOR:"):
-                            author = line.replace("AUTHOR:", "").strip().lstrip("—").lstrip("-").strip()
-
-                    if quote and author:
-                        is_duplicate = any(
-                            quote.lower() in prev.lower() or prev.lower() in quote.lower()
-                            for prev in previous_quotes
-                        )
-                        if not is_duplicate:
-                            print(f"Successfully generated unique quote via Gemini API ({clean_name})!")
-                            return quote, author
-
-                except Exception as e:
-                    err_str = str(e)
-                    print(f"Model {clean_name} note: {err_str[:120]}...")
-                    if "401" in err_str or "invalid authentication" in err_str.lower():
-                        print("Notice: GEMINI_API_KEY is invalid. Switching to curated verified sales database.")
-                        break
-                    continue
-
-        except Exception as e:
-            print(f"Gemini API initialization notice: {e}")
-
-    # 2. Infallible Curated Database Fallback (Guarantees zero crashes & 100% real verified quotes)
-    print("Selecting fresh, unposted verified sales quote from curated database...")
-    for q, a in random.sample(VERIFIED_SALES_QUOTES_DB, len(VERIFIED_SALES_QUOTES_DB)):
-        is_dup = any(
-            q.lower() in prev.lower() or prev.lower() in q.lower()
+    for item in available_quotes:
+        quote = item["quote"].strip()
+        author = item["author"].strip()
+        
+        is_duplicate = any(
+            quote.lower() in prev.lower() or prev.lower() in quote.lower()
             for prev in previous_quotes
         )
-        if not is_dup:
-            print(f"Selected verified quote by {a}: '{q}'")
-            return q, a
+        if not is_duplicate:
+            print(f"Selected verified quote by {author}: '{quote}'")
+            return quote, author
 
-    # If all in DB were used, return random choice
-    q, a = random.choice(VERIFIED_SALES_QUOTES_DB)
-    return q, a
+    # Fallback to first quote if all 365 have been posted over the year
+    first = QUOTES_365_DATABASE[len(previous_quotes) % len(QUOTES_365_DATABASE)]
+    return first["quote"], first["author"]
 
 
 

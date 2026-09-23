@@ -20,11 +20,11 @@ BUFFER_TOKEN = (os.environ.get("BUFFER_TOKEN") or "IfwhI__dFlw9aanEGYQq1QpIq147g
 def _mask(s):
     return f"{s[:8]}...{s[-4:]}" if len(s) > 12 else ("(empty)" if not s else "(too short)")
 
-print(f"[INIT] LINKEDIN_ACCESS_TOKEN: {_mask(LINKEDIN_ACCESS_TOKEN)} (len={len(LINKEDIN_ACCESS_TOKEN)})")
-print(f"[INIT] LINKEDIN_AUTHOR_URN  : {LINKEDIN_AUTHOR_URN or '(empty)'}")
-print(f"[INIT] GEMINI_API_KEY       : {_mask(GEMINI_API_KEY)} (len={len(GEMINI_API_KEY)})")
-print(f"[INIT] GROQ_API_KEY         : {_mask(GROQ_API_KEY)} (len={len(GROQ_API_KEY)})")
-print(f"[INIT] BUFFER_TOKEN         : {_mask(BUFFER_TOKEN)} (len={len(BUFFER_TOKEN)})")
+print(f"[INIT] LINKEDIN_ACCESS_TOKEN: {_mask(LINKEDIN_ACCESS_TOKEN)} (len={len(LINKEDIN_ACCESS_TOKEN)})", flush=True)
+print(f"[INIT] LINKEDIN_AUTHOR_URN  : {LINKEDIN_AUTHOR_URN or '(empty)'}", flush=True)
+print(f"[INIT] GEMINI_API_KEY       : {_mask(GEMINI_API_KEY)} (len={len(GEMINI_API_KEY)})", flush=True)
+print(f"[INIT] GROQ_API_KEY         : {_mask(GROQ_API_KEY)} (len={len(GROQ_API_KEY)})", flush=True)
+print(f"[INIT] BUFFER_TOKEN         : {_mask(BUFFER_TOKEN)} (len={len(BUFFER_TOKEN)})", flush=True)
 
 TEMPLATE_PATH = "template.png"
 PHONE_ICON_PATH = "phone_quote_icon.png"
@@ -495,46 +495,50 @@ def append_to_history(quote, author, post_url, history_path=HISTORY_FILE):
 
 def post_via_buffer(quote, author, image_path):
     """Publishes quote image directly to Bulk Leads Caller LinkedIn Business Page via Buffer GraphQL API."""
-    print("Uploading quote image to public CDN for Buffer...")
+    print("Uploading quote image to public CDN for Buffer...", flush=True)
     image_url = None
+    ua_headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
     
     # Provider 1: Tmpfiles.org
     if not image_url:
         try:
             with open(image_path, "rb") as f:
-                r_tmp = requests.post("https://tmpfiles.org/api/v1/upload", files={"file": f}, timeout=(4.0, 10.0))
+                r_tmp = requests.post("https://tmpfiles.org/api/v1/upload", files={"file": f}, headers=ua_headers, timeout=(4.0, 10.0))
                 if r_tmp.status_code == 200:
                     data = r_tmp.json()
                     image_url = data.get("data", {}).get("url", "").replace("tmpfiles.org/", "tmpfiles.org/dl/")
         except Exception as e:
-            print(f"Provider 1 (Tmpfiles) note: {e}")
+            print(f"Provider 1 (Tmpfiles) note: {e}", flush=True)
 
     # Provider 2: Catbox.moe
     if not image_url:
         try:
             with open(image_path, "rb") as f:
-                r_cat = requests.post("https://catbox.moe/user/api.php", data={"reqtype": "fileupload"}, files={"fileToUpload": f}, timeout=(4.0, 10.0))
+                r_cat = requests.post("https://catbox.moe/user/api.php", data={"reqtype": "fileupload"}, files={"fileToUpload": f}, headers=ua_headers, timeout=(4.0, 10.0))
                 if r_cat.status_code == 200 and r_cat.text.startswith("http"):
                     image_url = r_cat.text.strip()
         except Exception as e:
-            print(f"Provider 2 (Catbox) note: {e}")
+            print(f"Provider 2 (Catbox) note: {e}", flush=True)
 
     # Provider 3: File.io
     if not image_url:
         try:
             with open(image_path, "rb") as f:
-                r_fio = requests.post("https://file.io", files={"file": f}, timeout=(4.0, 10.0))
+                r_fio = requests.post("https://file.io", files={"file": f}, headers=ua_headers, timeout=(4.0, 10.0))
                 if r_fio.status_code == 200:
                     image_url = r_fio.json().get("link")
         except Exception as e:
-            print(f"Provider 3 (File.io) note: {e}")
+            print(f"Provider 3 (File.io) note: {e}", flush=True)
 
     if not image_url:
         raise RuntimeError("Failed to upload image to any public CDN for Buffer.")
 
-    print(f"CDN image URL: {image_url}")
+    print(f"CDN image URL: {image_url}", flush=True)
 
     headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "Authorization": f"Bearer {BUFFER_TOKEN}",
         "Content-Type": "application/json"
     }
@@ -572,7 +576,7 @@ def post_via_buffer(quote, author, image_path):
     
     channel_id = target_channel["id"]
     channel_name = target_channel["name"]
-    print(f"Targeting Buffer LinkedIn Business Page channel: '{channel_name}' (ID: {channel_id})")
+    print(f"Targeting Buffer LinkedIn Business Page channel: '{channel_name}' (ID: {channel_id})", flush=True)
 
     # 3. Create post via Buffer GraphQL API
     commentary = (
@@ -627,7 +631,7 @@ def post_via_buffer(quote, author, image_path):
     if "post" in create_res:
         post_id = create_res["post"]["id"]
         status = create_res["post"]["status"]
-        print(f"Buffer post created successfully! Post ID: {post_id} (Status: {status})")
+        print(f"Buffer post created successfully! Post ID: {post_id} (Status: {status})", flush=True)
         return f"https://publish.buffer.com/profile/{channel_id}/buffer/queue"
     elif "message" in create_res:
         raise RuntimeError(f"Buffer post creation failed: {create_res['message']}")
@@ -636,38 +640,38 @@ def post_via_buffer(quote, author, image_path):
 
 
 def main():
-    print("==========================================")
-    print(" Bulk Leads Caller - Daily Quote Publisher")
-    print("==========================================")
+    print("==========================================", flush=True)
+    print(" Bulk Leads Caller - Daily Quote Publisher", flush=True)
+    print("==========================================", flush=True)
 
-    print("\n[1/5] Checking previous quote history...")
+    print("\n[1/5] Checking previous quote history...", flush=True)
     previous_quotes = get_previous_quotes()
-    print(f"Loaded {len(previous_quotes)} quotes from history.")
+    print(f"Loaded {len(previous_quotes)} quotes from history.", flush=True)
 
-    print("\n[2/5] Generating verified sales quote via Google Gemini API (Free)...")
+    print("\n[2/5] Generating verified sales quote via Google Gemini API (Free)...", flush=True)
     quote, author = generate_unique_quote(previous_quotes)
-    print(f"Quote : {quote}")
-    print(f"Author: {author}")
+    print(f"Quote : {quote}", flush=True)
+    print(f"Author: {author}", flush=True)
 
-    print("\n[3/5] Rendering text onto template with Pillow...")
+    print("\n[3/5] Rendering text onto template with Pillow...", flush=True)
     image_path = render_quote_image(quote, author)
 
     if BUFFER_TOKEN:
-        print("\n[4/5 & 5/5] Publishing post to LinkedIn Business Page via Buffer API...")
+        print("\n[4/5 & 5/5] Publishing post to LinkedIn Business Page via Buffer API...", flush=True)
         post_url = post_via_buffer(quote, author, image_path)
     else:
-        print("\n[4/5] Uploading image to LinkedIn...")
+        print("\n[4/5] Uploading image to LinkedIn...", flush=True)
         asset_urn, used_owner_urn = upload_image_to_linkedin(image_path, LINKEDIN_AUTHOR_URN)
-        print(f"Uploaded asset URN: {asset_urn} (Owner: {used_owner_urn})")
+        print(f"Uploaded asset URN: {asset_urn} (Owner: {used_owner_urn})", flush=True)
 
-        print("\n[5/5] Publishing post to LinkedIn...")
+        print("\n[5/5] Publishing post to LinkedIn...", flush=True)
         post_url = post_to_linkedin(quote, author, asset_urn, used_owner_urn)
 
-    print(f"SUCCESS! Published post URL: {post_url}")
+    print(f"SUCCESS! Published post URL: {post_url}", flush=True)
 
-    print("\nLogging quote to history...")
+    print("\nLogging quote to history...", flush=True)
     append_to_history(quote, author, post_url)
-    print("Completed successfully.")
+    print("Completed successfully.", flush=True)
 
 
 if __name__ == "__main__":

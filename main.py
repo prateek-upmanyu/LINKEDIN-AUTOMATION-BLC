@@ -501,7 +501,17 @@ def post_via_buffer(quote, author, image_path):
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
     
-    # Provider 1: Catbox.moe (Instant static CDN)
+    # Provider 1: FreeImage.host (High reliability static CDN)
+    if not image_url:
+        try:
+            with open(image_path, "rb") as f:
+                r_free = requests.post("https://freeimage.host/api/1/upload", data={"key": "6d207e02198a847aa98d0a2a901485a5", "action": "upload"}, files={"source": f}, headers=ua_headers, timeout=(5.0, 12.0))
+                if r_free.status_code == 200:
+                    image_url = r_free.json().get("image", {}).get("url")
+        except Exception as e:
+            print(f"Provider 1 (FreeImage) note: {e}", flush=True)
+
+    # Provider 2: Catbox.moe (Instant static CDN)
     if not image_url:
         try:
             with open(image_path, "rb") as f:
@@ -509,9 +519,9 @@ def post_via_buffer(quote, author, image_path):
                 if r_cat.status_code == 200 and r_cat.text.startswith("http"):
                     image_url = r_cat.text.strip()
         except Exception as e:
-            print(f"Provider 1 (Catbox) note: {e}", flush=True)
+            print(f"Provider 2 (Catbox) note: {e}", flush=True)
 
-    # Provider 2: Tmpfiles.org
+    # Provider 3: Tmpfiles.org
     if not image_url:
         try:
             with open(image_path, "rb") as f:
@@ -520,17 +530,7 @@ def post_via_buffer(quote, author, image_path):
                     data = r_tmp.json()
                     image_url = data.get("data", {}).get("url", "").replace("tmpfiles.org/", "tmpfiles.org/dl/")
         except Exception as e:
-            print(f"Provider 2 (Tmpfiles) note: {e}", flush=True)
-
-    # Provider 3: File.io
-    if not image_url:
-        try:
-            with open(image_path, "rb") as f:
-                r_fio = requests.post("https://file.io", files={"file": f}, headers=ua_headers, timeout=(4.0, 10.0))
-                if r_fio.status_code == 200:
-                    image_url = r_fio.json().get("link")
-        except Exception as e:
-            print(f"Provider 3 (File.io) note: {e}", flush=True)
+            print(f"Provider 3 (Tmpfiles) note: {e}", flush=True)
 
     if not image_url:
         raise RuntimeError("Failed to upload image to any public CDN for Buffer.")

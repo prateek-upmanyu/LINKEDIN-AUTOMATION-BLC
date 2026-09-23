@@ -498,25 +498,36 @@ def post_via_buffer(quote, author, image_path):
     print("Uploading quote image to public CDN for Buffer...")
     image_url = None
     
-    # Primary CDN: Catbox.moe
-    try:
-        with open(image_path, "rb") as f:
-            r_cat = requests.post("https://catbox.moe/user/api.php", data={"reqtype": "fileupload"}, files={"fileToUpload": f}, timeout=10)
-            if r_cat.status_code == 200 and r_cat.text.startswith("http"):
-                image_url = r_cat.text.strip()
-    except Exception as e:
-        print(f"Primary CDN note: {e}")
-
-    # Fallback CDN: Tmpfiles.org
+    # Provider 1: Tmpfiles.org
     if not image_url:
         try:
             with open(image_path, "rb") as f:
-                r_tmp = requests.post("https://tmpfiles.org/api/v1/upload", files={"file": f}, timeout=10)
+                r_tmp = requests.post("https://tmpfiles.org/api/v1/upload", files={"file": f}, timeout=(4.0, 10.0))
                 if r_tmp.status_code == 200:
                     data = r_tmp.json()
                     image_url = data.get("data", {}).get("url", "").replace("tmpfiles.org/", "tmpfiles.org/dl/")
         except Exception as e:
-            print(f"Fallback CDN note: {e}")
+            print(f"Provider 1 (Tmpfiles) note: {e}")
+
+    # Provider 2: Catbox.moe
+    if not image_url:
+        try:
+            with open(image_path, "rb") as f:
+                r_cat = requests.post("https://catbox.moe/user/api.php", data={"reqtype": "fileupload"}, files={"fileToUpload": f}, timeout=(4.0, 10.0))
+                if r_cat.status_code == 200 and r_cat.text.startswith("http"):
+                    image_url = r_cat.text.strip()
+        except Exception as e:
+            print(f"Provider 2 (Catbox) note: {e}")
+
+    # Provider 3: File.io
+    if not image_url:
+        try:
+            with open(image_path, "rb") as f:
+                r_fio = requests.post("https://file.io", files={"file": f}, timeout=(4.0, 10.0))
+                if r_fio.status_code == 200:
+                    image_url = r_fio.json().get("link")
+        except Exception as e:
+            print(f"Provider 3 (File.io) note: {e}")
 
     if not image_url:
         raise RuntimeError("Failed to upload image to any public CDN for Buffer.")
@@ -531,7 +542,7 @@ def post_via_buffer(quote, author, image_path):
 
     # 1. Fetch organization ID
     q_org = {"query": "query { account { organizations { id name } } }"}
-    r_org = requests.post(url, headers=headers, json=q_org, timeout=10)
+    r_org = requests.post(url, headers=headers, json=q_org, timeout=(4.0, 10.0))
     if r_org.status_code != 200 or "data" not in r_org.json():
         raise RuntimeError(f"Buffer organization query failed: {r_org.text}")
     
@@ -545,7 +556,7 @@ def post_via_buffer(quote, author, image_path):
         "query": "query GetChannels($input: ChannelsInput!) { channels(input: $input) { id name service type } }",
         "variables": {"input": {"organizationId": org_id}}
     }
-    r_chan = requests.post(url, headers=headers, json=q_chan, timeout=10)
+    r_chan = requests.post(url, headers=headers, json=q_chan, timeout=(4.0, 10.0))
     if r_chan.status_code != 200 or "data" not in r_chan.json():
         raise RuntimeError(f"Buffer channels query failed: {r_chan.text}")
     
@@ -607,7 +618,7 @@ def post_via_buffer(quote, author, image_path):
       }
     }
 
-    res = requests.post(url, headers=headers, json={"query": mutation, "variables": variables}, timeout=15)
+    res = requests.post(url, headers=headers, json={"query": mutation, "variables": variables}, timeout=(5.0, 15.0))
     if res.status_code != 200:
         raise RuntimeError(f"Buffer API request failed: {res.status_code} - {res.text}")
     

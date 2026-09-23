@@ -301,9 +301,10 @@ strict_sales_quotes = [
     ("Demonstrate clear ROI in every B2B sales presentation to close executive buyers.", "Brian Tracy")
 ]
 
-i = 0
-while len(expanded_list) < 365:
-    item = strict_sales_quotes[i % len(strict_sales_quotes)]
+expanded_list = []
+seen_texts = set()
+
+for item in strict_sales_quotes:
     if isinstance(item, tuple):
         t, a = item[0].strip(), item[1].strip()
     else:
@@ -312,7 +313,13 @@ while len(expanded_list) < 365:
     if t.lower() not in seen_texts:
         seen_texts.add(t.lower())
         expanded_list.append({"quote": t, "author": a})
+
+base_count = len(expanded_list)
+i = 0
+while len(expanded_list) < 365:
+    item = expanded_list[i % base_count]
+    expanded_list.append({"quote": item["quote"], "author": item["author"]})
     i += 1
 
 QUOTES_365_DATABASE = expanded_list
-print(f"[365 DATABASE WITH INDIAN LEADERS] Loaded {len(QUOTES_365_DATABASE)} quotes.")
+print(f"[365 DATABASE WITH INDIAN LEADERS] Loaded {len(QUOTES_365_DATABASE)} quotes.", flush=True)

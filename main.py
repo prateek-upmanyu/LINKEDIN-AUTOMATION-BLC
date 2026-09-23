@@ -644,27 +644,28 @@ def main():
     print(" Bulk Leads Caller - Daily Quote Publisher", flush=True)
     print("==========================================", flush=True)
 
-    print("\n[1/5] Checking previous quote history...", flush=True)
+    print("\n[STEP 1/5] Checking previous quote history...", flush=True)
     previous_quotes = get_previous_quotes()
     print(f"Loaded {len(previous_quotes)} quotes from history.", flush=True)
 
-    print("\n[2/5] Generating verified sales quote via Google Gemini API (Free)...", flush=True)
+    print("\n[STEP 2/5] Generating verified sales quote...", flush=True)
     quote, author = generate_unique_quote(previous_quotes)
-    print(f"Quote : {quote}", flush=True)
-    print(f"Author: {author}", flush=True)
+    print(f"Selected Quote : {quote}", flush=True)
+    print(f"Selected Author: {author}", flush=True)
 
-    print("\n[3/5] Rendering text onto template with Pillow...", flush=True)
+    print("\n[STEP 3/5] Rendering text onto template image...", flush=True)
     image_path = render_quote_image(quote, author)
+    print(f"Rendered image path: {image_path}", flush=True)
 
     if BUFFER_TOKEN:
-        print("\n[4/5 & 5/5] Publishing post to LinkedIn Business Page via Buffer API...", flush=True)
+        print("\n[STEP 4/5 & 5/5] Publishing post via Buffer API...", flush=True)
         post_url = post_via_buffer(quote, author, image_path)
     else:
-        print("\n[4/5] Uploading image to LinkedIn...", flush=True)
+        print("\n[STEP 4/5] Uploading image to LinkedIn...", flush=True)
         asset_urn, used_owner_urn = upload_image_to_linkedin(image_path, LINKEDIN_AUTHOR_URN)
         print(f"Uploaded asset URN: {asset_urn} (Owner: {used_owner_urn})", flush=True)
 
-        print("\n[5/5] Publishing post to LinkedIn...", flush=True)
+        print("\n[STEP 5/5] Publishing post to LinkedIn...", flush=True)
         post_url = post_to_linkedin(quote, author, asset_urn, used_owner_urn)
 
     print(f"SUCCESS! Published post URL: {post_url}", flush=True)

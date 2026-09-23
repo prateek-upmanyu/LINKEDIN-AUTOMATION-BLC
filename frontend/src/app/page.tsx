@@ -12,7 +12,7 @@ function Dashboard() {
   const fallbackUrn = searchParams.get('urn');
   const [copied, setCopied] = useState(false);
 
-  const [time, setTime] = useState('09:00');
+  const [time, setTime] = useState('18:30');
   const [isSaving, setIsSaving] = useState(false);
   const [timeMsg, setTimeMsg] = useState('');
 

@@ -14,7 +14,7 @@ GEMINI_API_KEY = (os.environ.get("GEMINI_API_KEY") or "").strip().strip('"').str
 GROQ_API_KEY = (os.environ.get("GROQ_API_KEY") or "").strip().strip('"').strip("'")
 LINKEDIN_ACCESS_TOKEN = (os.environ.get("LINKEDIN_ACCESS_TOKEN") or "").strip().strip('"').strip("'")
 LINKEDIN_AUTHOR_URN = (os.environ.get("LINKEDIN_AUTHOR_URN") or "").strip().strip('"').strip("'")
-BUFFER_TOKEN = (os.environ.get("BUFFER_TOKEN") or "IfwhI__dFlw9aanEGYQq1QpIq147g3pOUz4gqVhjuDq").strip().strip('"').strip("'")
+BUFFER_TOKEN = (os.environ.get("BUFFER_TOKEN") or "").strip().strip('"').strip("'")
 
 # Startup token diagnostics (masked for security)
 def _mask(s):
@@ -289,7 +289,7 @@ def render_quote_image(quote, author, template_path=TEMPLATE_PATH, icon_path=PHO
         font_quote = get_font(bold_font_path, 22, "bold")
         lines = textwrap.wrap(quote, width=28)
 
-    line_height = int(selected_font_size * 1.42)
+    line_height = int(selected_size * 1.42)
     total_text_height = len(lines) * line_height
     start_y = TEXT_CENTER_Y - (total_text_height // 2)
 

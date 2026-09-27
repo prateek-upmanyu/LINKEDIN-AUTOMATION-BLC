@@ -501,36 +501,51 @@ def post_via_buffer(quote, author, image_path):
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
     
-    # Provider 1: FreeImage.host (High reliability static CDN)
+    # Provider 1: Catbox.moe (Direct static image CDN with explicit filename)
     if not image_url:
         try:
             with open(image_path, "rb") as f:
-                r_free = requests.post("https://freeimage.host/api/1/upload", data={"key": "6d207e02198a847aa98d0a2a901485a5", "action": "upload"}, files={"source": f}, headers=ua_headers, timeout=(5.0, 12.0))
-                if r_free.status_code == 200:
-                    image_url = r_free.json().get("image", {}).get("url")
-        except Exception as e:
-            print(f"Provider 1 (FreeImage) note: {e}", flush=True)
-
-    # Provider 2: Catbox.moe (Instant static CDN)
-    if not image_url:
-        try:
-            with open(image_path, "rb") as f:
-                r_cat = requests.post("https://catbox.moe/user/api.php", data={"reqtype": "fileupload"}, files={"fileToUpload": f}, headers=ua_headers, timeout=(4.0, 10.0))
+                r_cat = requests.post(
+                    "https://catbox.moe/user/api.php",
+                    data={"reqtype": "fileupload"},
+                    files={"fileToUpload": (os.path.basename(image_path), f, "image/png")},
+                    headers=ua_headers,
+                    timeout=(10.0, 30.0)
+                )
                 if r_cat.status_code == 200 and r_cat.text.startswith("http"):
                     image_url = r_cat.text.strip()
+                    print(f"CDN Provider 1 (Catbox) success: {image_url}", flush=True)
         except Exception as e:
-            print(f"Provider 2 (Catbox) note: {e}", flush=True)
+            print(f"Provider 1 (Catbox) note: {e}", flush=True)
 
-    # Provider 3: Tmpfiles.org
+    # Provider 2: Direct GitHub Raw / jsDelivr CDN
+    if not image_url:
+        try:
+            gh_raw = f"https://raw.githubusercontent.com/prateek-upmanyu/LINKEDIN-AUTOMATION-BLC/master/{image_path}"
+            r_gh = requests.head(gh_raw, timeout=(5.0, 10.0))
+            if r_gh.status_code == 200 and "image" in r_gh.headers.get("Content-Type", ""):
+                image_url = gh_raw
+                print(f"CDN Provider 2 (GitHub Raw) success: {image_url}", flush=True)
+        except Exception as e:
+            print(f"Provider 2 (GitHub Raw) note: {e}", flush=True)
+
+    # Provider 3: FreeImage.host
     if not image_url:
         try:
             with open(image_path, "rb") as f:
-                r_tmp = requests.post("https://tmpfiles.org/api/v1/upload", files={"file": f}, headers=ua_headers, timeout=(4.0, 10.0))
-                if r_tmp.status_code == 200:
-                    data = r_tmp.json()
-                    image_url = data.get("data", {}).get("url", "").replace("tmpfiles.org/", "tmpfiles.org/dl/")
+                r_free = requests.post(
+                    "https://freeimage.host/api/1/upload",
+                    data={"key": "6d207e02198a847aa98d0a2a901485a5", "action": "upload"},
+                    files={"source": (os.path.basename(image_path), f, "image/png")},
+                    headers=ua_headers,
+                    timeout=(5.0, 15.0)
+                )
+                if r_free.status_code == 200:
+                    image_url = r_free.json().get("image", {}).get("url")
+                    if image_url:
+                        print(f"CDN Provider 3 (FreeImage) success: {image_url}", flush=True)
         except Exception as e:
-            print(f"Provider 3 (Tmpfiles) note: {e}", flush=True)
+            print(f"Provider 3 (FreeImage) note: {e}", flush=True)
 
     if not image_url:
         raise RuntimeError("Failed to upload image to any public CDN for Buffer.")

@@ -501,7 +501,38 @@ def post_via_buffer(quote, author, image_path):
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
     
-    # Provider 1: Catbox.moe (Direct static image CDN with explicit filename)
+    # Provider 1: Unique Timestamped Direct GitHub Repo Upload (100% fresh, uncacheable, reliable)
+    if not image_url:
+        try:
+            import base64
+            gh_token = (os.environ.get("GITHUB_TOKEN") or "").strip()
+            if not gh_token:
+                raise ValueError("GITHUB_TOKEN env var not set")
+            with open(image_path, "rb") as f:
+                b64_content = base64.b64encode(f.read()).decode("utf-8")
+            ts_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+            ext = os.path.splitext(image_path)[1]
+            dest_filename = f"posts/quote_{ts_str}{ext}"
+            api_url = f"https://api.github.com/repos/prateek-upmanyu/LINKEDIN-AUTOMATION-BLC/contents/{dest_filename}"
+            gh_headers = {
+                "Authorization": f"Bearer {gh_token}",
+                "Accept": "application/vnd.github+json",
+                "X-GitHub-Api-Version": "2022-11-28",
+                "User-Agent": "Mozilla/5.0"
+            }
+            payload = {
+                "message": f"chore: upload {dest_filename} [skip ci]",
+                "content": b64_content,
+                "branch": "master"
+            }
+            r_gh = requests.put(api_url, headers=gh_headers, json=payload, timeout=(10.0, 30.0))
+            if r_gh.status_code in [200, 201]:
+                image_url = r_gh.json().get("content", {}).get("download_url")
+                print(f"CDN Provider 1 (Unique GitHub Raw) success: {image_url}", flush=True)
+        except Exception as e:
+            print(f"Provider 1 (GitHub Upload) note: {e}", flush=True)
+
+    # Provider 2: Catbox.moe (Direct static image CDN with explicit filename)
     if not image_url:
         try:
             with open(image_path, "rb") as f:
@@ -514,20 +545,9 @@ def post_via_buffer(quote, author, image_path):
                 )
                 if r_cat.status_code == 200 and r_cat.text.startswith("http"):
                     image_url = r_cat.text.strip()
-                    print(f"CDN Provider 1 (Catbox) success: {image_url}", flush=True)
+                    print(f"CDN Provider 2 (Catbox) success: {image_url}", flush=True)
         except Exception as e:
-            print(f"Provider 1 (Catbox) note: {e}", flush=True)
-
-    # Provider 2: Direct GitHub Raw / jsDelivr CDN
-    if not image_url:
-        try:
-            gh_raw = f"https://raw.githubusercontent.com/prateek-upmanyu/LINKEDIN-AUTOMATION-BLC/master/{image_path}"
-            r_gh = requests.head(gh_raw, timeout=(5.0, 10.0))
-            if r_gh.status_code == 200 and "image" in r_gh.headers.get("Content-Type", ""):
-                image_url = gh_raw
-                print(f"CDN Provider 2 (GitHub Raw) success: {image_url}", flush=True)
-        except Exception as e:
-            print(f"Provider 2 (GitHub Raw) note: {e}", flush=True)
+            print(f"Provider 2 (Catbox) note: {e}", flush=True)
 
     # Provider 3: FreeImage.host
     if not image_url:

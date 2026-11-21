@@ -440,6 +440,7 @@ def post_to_linkedin(quote, author, asset_urn, author_urn):
 
     commentary = (
         f'"{quote}"\n— {author}\n\n'
+        f"📲 Get Bulk Leads Caller: https://linkface.in/bulkleadscaller\n\n"
         f"#Sales #ColdCalling #LeadGeneration #BulkLeadsCaller #SalesMotivation #BusinessGrowth"
     )
 
@@ -618,6 +619,7 @@ def post_via_buffer(quote, author, image_path):
     # 3. Create post via Buffer GraphQL API
     commentary = (
         f'"{quote}"\n— {author}\n\n'
+        f"📲 Get Bulk Leads Caller: https://linkface.in/bulkleadscaller\n\n"
         f"#Sales #ColdCalling #LeadGeneration #BulkLeadsCaller #SalesMotivation #BusinessGrowth"
     )
 
